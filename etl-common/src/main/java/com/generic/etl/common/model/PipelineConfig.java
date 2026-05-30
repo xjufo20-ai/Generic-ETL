@@ -11,7 +11,6 @@ public class PipelineConfig {
     private SchemaConfig inputSchema;
     private List<TransformDef> transforms;
     private OutputConfig output;
-    private JoinConfig join;
 
     @Data
     public static class Pipeline {
