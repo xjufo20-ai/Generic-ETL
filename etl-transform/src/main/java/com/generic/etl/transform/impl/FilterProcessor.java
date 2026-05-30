@@ -6,12 +6,11 @@ import com.generic.etl.core.expression.ExpressionEvaluator;
 import com.generic.etl.core.transform.TransformProcessor;
 
 public class FilterProcessor implements TransformProcessor {
-
     @Override
     public Row process(Row row, TransformDef def) {
-        if (ExpressionEvaluator.evaluate(row, def.getExpression())) {
-            return row;
+        if (def instanceof TransformDef.FilterDef f) {
+            if (ExpressionEvaluator.evaluate(row, f.getExpression())) return row;
         }
-        return null; // filtered out
+        return null;
     }
 }

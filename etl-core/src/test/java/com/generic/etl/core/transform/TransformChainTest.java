@@ -27,52 +27,30 @@ class TransformChainTest {
         TransformChain chain = new TransformChain(processors);
 
         PipelineConfig config = new PipelineConfig();
-        TransformDef filter = new TransformDef();
-        filter.setType("filter");
+
+        TransformDef.FilterDef filter = new TransformDef.FilterDef();
         filter.setExpression("salary > 0");
 
-        TransformDef rename = new TransformDef();
-        rename.setType("rename");
-        TransformDef.MappingDef mapping = new TransformDef.MappingDef();
-        mapping.setFrom("name");
-        mapping.setTo("employee_name");
-        rename.setMappings(List.of(mapping));
+        TransformDef.RenameDef rename = new TransformDef.RenameDef();
+        TransformDef.MappingDef m = new TransformDef.MappingDef();
+        m.setFrom("name"); m.setTo("employee_name");
+        rename.setMappings(List.of(m));
 
-        TransformDef agg = new TransformDef();
-        agg.setType("aggregate");
+        TransformDef.AggregateDef agg = new TransformDef.AggregateDef();
         agg.setGroupBy(List.of("dept"));
-        TransformDef.AggregationDef aggDef = new TransformDef.AggregationDef();
-        aggDef.setField("salary");
-        aggDef.setFunction("SUM");
-        aggDef.setAlias("total_salary");
-        agg.setAggregations(List.of(aggDef));
+        TransformDef.Aggregation a = new TransformDef.Aggregation();
+        a.setField("salary"); a.setFunction("SUM"); a.setAlias("total_salary");
+        agg.setAggregations(List.of(a));
 
         config.setTransforms(List.of(filter, rename, agg));
 
-        Row r1 = new Row();
-        r1.put("id", 1L);
-        r1.put("name", "Alice");
-        r1.put("dept", "Eng");
-        r1.put("salary", new BigDecimal("100"));
-
-        Row r2 = new Row();
-        r2.put("id", 2L);
-        r2.put("name", "Bob");
-        r2.put("dept", "Eng");
-        r2.put("salary", new BigDecimal("200"));
-
-        Row r3 = new Row();
-        r3.put("id", 3L);
-        r3.put("name", "Charlie");
-        r3.put("dept", "Sales");
-        r3.put("salary", new BigDecimal("0")); // will be filtered
+        Row r1 = new Row(); r1.put("id", 1L); r1.put("name", "Alice"); r1.put("dept", "Eng"); r1.put("salary", new BigDecimal("100"));
+        Row r2 = new Row(); r2.put("id", 2L); r2.put("name", "Bob"); r2.put("dept", "Eng"); r2.put("salary", new BigDecimal("200"));
+        Row r3 = new Row(); r3.put("id", 3L); r3.put("name", "Charlie"); r3.put("dept", "Sales"); r3.put("salary", new BigDecimal("0"));
 
         List<Row> results = chain.apply(Stream.of(r1, r2, r3), config).toList();
-
-        // Filter removes r3, aggregate groups by dept
         assertEquals(1, results.size());
-        Row result = results.get(0);
-        assertEquals("Eng", result.get("dept"));
-        assertTrue(((BigDecimal) result.get("total_salary")).compareTo(new BigDecimal("300")) == 0);
+        assertEquals("Eng", results.get(0).get("dept"));
+        assertEquals(new BigDecimal("300"), results.get(0).get("total_salary"));
     }
 }

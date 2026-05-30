@@ -12,15 +12,15 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 
 public class TypeCastProcessor implements TransformProcessor {
-
     @Override
     public Row process(Row row, TransformDef def) {
-        if (def.getMappings() == null) return row;
-        for (TransformDef.MappingDef mapping : def.getMappings()) {
-            if (!row.has(mapping.getField())) continue;
-            Object value = row.get(mapping.getField());
-            FieldType targetType = FieldType.fromString(mapping.getToType());
-            row.put(mapping.getField(), cast(value, targetType));
+        if (def instanceof TransformDef.TypeCastDef t && t.getMappings() != null) {
+            for (TransformDef.TypeCastMapping m : t.getMappings()) {
+                if (!row.has(m.getField())) continue;
+                Object value = row.get(m.getField());
+                FieldType targetType = FieldType.fromString(m.getToType());
+                row.put(m.getField(), cast(value, targetType));
+            }
         }
         return row;
     }
@@ -37,11 +37,8 @@ public class TypeCastProcessor implements TransformProcessor {
                 case DOUBLE -> Double.parseDouble(str);
                 case BOOLEAN -> Boolean.parseBoolean(str);
                 case DATETIME -> {
-                    try {
-                        yield LocalDateTime.parse(str, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-                    } catch (DateTimeParseException e) {
-                        yield LocalDateTime.parse(str, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-                    }
+                    try { yield LocalDateTime.parse(str, DateTimeFormatter.ISO_LOCAL_DATE_TIME); }
+                    catch (DateTimeParseException e) { yield LocalDateTime.parse(str, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")); }
                 }
             };
         } catch (Exception e) {

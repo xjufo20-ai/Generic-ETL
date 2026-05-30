@@ -10,78 +10,47 @@ import java.sql.ResultSet;
 import java.util.*;
 
 public class JoinProcessor implements TransformProcessor {
-
     private final DataSource dataSource;
 
-    public JoinProcessor(DataSource dataSource) {
-        this.dataSource = dataSource;
-    }
+    public JoinProcessor(DataSource dataSource) { this.dataSource = dataSource; }
 
-    @Override
-    public Row process(Row row, TransformDef def) {
-        throw new UnsupportedOperationException("Join is a set-level transform, use processSet()");
-    }
-
-    @Override
-    public boolean isSetProcessor() {
-        return true;
-    }
+    @Override public Row process(Row row, TransformDef def) { throw new UnsupportedOperationException("Use processSet()"); }
+    @Override public boolean isSetProcessor() { return true; }
 
     @Override
     public List<Row> processSet(List<Row> rows, TransformDef def) {
-        if (def.getQuery() == null || def.getQuery().isBlank()) {
-            return rows; // No join, pass through
-        }
+        if (!(def instanceof TransformDef.JoinDef j)) return rows;
+        if (j.getQuery() == null || j.getQuery().isBlank()) return rows;
 
         List<Row> result = new ArrayList<>();
-        String joinSql = def.getQuery();
-        String joinType = def.getJoinType() != null ? def.getJoinType().toUpperCase() : "INNER";
+        String joinType = j.getJoinType() != null ? j.getJoinType().toUpperCase() : "INNER";
 
         try (var conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(joinSql)) {
-
-            // For each row, execute the join query
+             PreparedStatement ps = conn.prepareStatement(j.getQuery())) {
             for (Row leftRow : rows) {
-                // Replace :field placeholders in the join query with row values
-                String resolvedSql = resolvePlaceholders(joinSql, leftRow);
-                try (PreparedStatement joinPs = conn.prepareStatement(resolvedSql);
-                     ResultSet rs = joinPs.executeQuery()) {
-
+                String resolvedSql = resolvePlaceholders(j.getQuery(), leftRow);
+                try (PreparedStatement jps = conn.prepareStatement(resolvedSql);
+                     ResultSet rs = jps.executeQuery()) {
                     int colCount = rs.getMetaData().getColumnCount();
                     boolean matched = false;
-
                     while (rs.next()) {
-                        Row joinedRow = leftRow.copy();
-                        for (int i = 1; i <= colCount; i++) {
-                            String colName = rs.getMetaData().getColumnLabel(i);
-                            Object val = rs.getObject(i);
-                            joinedRow.put(colName, val);
-                        }
-                        result.add(joinedRow);
+                        Row joined = leftRow.copy();
+                        for (int i = 1; i <= colCount; i++) joined.put(rs.getMetaData().getColumnLabel(i), rs.getObject(i));
+                        result.add(joined);
                         matched = true;
                     }
-
-                    if (!matched && joinType.equals("LEFT")) {
-                        result.add(leftRow);
-                    }
+                    if (!matched && "LEFT".equals(joinType)) result.add(leftRow);
                 }
             }
-        } catch (Exception e) {
-            throw new RuntimeException("Join execution failed", e);
-        }
-
+        } catch (Exception e) { throw new RuntimeException("Join failed", e); }
         return result;
     }
 
     private String resolvePlaceholders(String sql, Row row) {
-        for (Map.Entry<String, Object> entry : row.getValues().entrySet()) {
-            String placeholder = ":" + entry.getKey();
-            Object val = entry.getValue();
-            if (val instanceof String || val instanceof java.time.temporal.Temporal) {
-                sql = sql.replace(placeholder, "'" + val.toString().replace("'", "''") + "'");
-            } else {
-                sql = sql.replace(placeholder, val != null ? val.toString() : "NULL");
-            }
+        for (Map.Entry<String, Object> e : row.getValues().entrySet()) {
+            String p = ":" + e.getKey();
+            Object v = e.getValue();
+            sql = sql.replace(p, (v instanceof String || v instanceof java.time.temporal.Temporal) ? "'" + v.toString().replace("'", "''") + "'" : v != null ? v.toString() : "NULL");
         }
         return sql;
     }
