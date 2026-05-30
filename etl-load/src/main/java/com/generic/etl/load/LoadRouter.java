@@ -1,19 +1,19 @@
 package com.generic.etl.load;
 
+import lombok.extern.slf4j.Slf4j;
+
 import com.generic.etl.common.model.ConsumerRegistration;
 import com.generic.etl.common.model.OutputConfig;
 import com.generic.etl.common.model.Row;
 import com.generic.etl.load.dispatch.ConsumerDispatchService;
 import com.generic.etl.load.persist.PersistHandler;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 public class LoadRouter {
-    private static final Logger log = LoggerFactory.getLogger(LoadRouter.class);
 
     private final PersistHandler persistHandler;
     private final ConsumerDispatchService dispatchService;

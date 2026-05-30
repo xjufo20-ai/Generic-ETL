@@ -1,18 +1,18 @@
 package com.generic.etl.core.runner;
 
+import lombok.extern.slf4j.Slf4j;
+
 import com.generic.etl.common.model.PipelineConfig;
 import com.generic.etl.common.model.Row;
 import com.generic.etl.core.config.PipelineConfigParser;
 import com.generic.etl.core.transform.TransformChain;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+@Slf4j
 public class PipelineRunner {
-    private static final Logger log = LoggerFactory.getLogger(PipelineRunner.class);
 
     private final PipelineConfigParser configParser;
     private final TransformChain transformChain;

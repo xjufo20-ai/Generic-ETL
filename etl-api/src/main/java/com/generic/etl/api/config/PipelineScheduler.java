@@ -1,9 +1,9 @@
 package com.generic.etl.api.config;
 
+import lombok.extern.slf4j.Slf4j;
+
 import com.generic.etl.common.model.PipelineConfig;
 import com.generic.etl.core.config.PipelineConfigParser;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 
@@ -17,8 +17,8 @@ import java.util.concurrent.ScheduledFuture;
  * When a pipeline is registered with a cron expression, it is scheduled
  * for recurring execution. Pipelines without a cron are not scheduled.
  */
+@Slf4j
 public class PipelineScheduler {
-    private static final Logger log = LoggerFactory.getLogger(PipelineScheduler.class);
 
     private final TaskScheduler taskScheduler;
     private final PipelineExecutionService executionService;

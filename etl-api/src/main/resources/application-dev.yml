@@ -1,0 +1,20 @@
+# ── Dev profile: H2 in-memory, verbose logging, H2 console enabled ──
+spring:
+  datasource:
+    url: jdbc:h2:mem:etldb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+logging:
+  level:
+    com.generic.etl: DEBUG
+    org.apache.camel: INFO
+
+etl:
+  retry:
+    max-retries: 1    # fewer retries in dev for faster feedback

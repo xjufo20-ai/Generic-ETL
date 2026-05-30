@@ -1,5 +1,7 @@
 package com.generic.etl.api.config;
 
+import lombok.extern.slf4j.Slf4j;
+
 import com.generic.etl.common.model.PipelineConfig;
 import com.generic.etl.common.model.PipelineRun;
 import com.generic.etl.common.model.Row;
@@ -7,8 +9,6 @@ import com.generic.etl.core.config.PipelineConfigParser;
 import com.generic.etl.core.transform.TransformChain;
 import com.generic.etl.extract.adapter.ExtractorRegistry;
 import com.generic.etl.load.LoadRouter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -18,8 +18,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Slf4j
 public class PipelineExecutionService {
-    private static final Logger log = LoggerFactory.getLogger(PipelineExecutionService.class);
     private static final int DEFAULT_MAX_RETRIES = 3;
     private static final long BASE_BACKOFF_MS = 1000;
 

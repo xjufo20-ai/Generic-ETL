@@ -1,11 +1,11 @@
 package com.generic.etl.load.dispatch;
 
+import lombok.extern.slf4j.Slf4j;
+
 import com.generic.etl.common.model.ConsumerRegistration;
 import com.generic.etl.common.model.Row;
 import com.generic.etl.common.model.SchemaConfig;
 import com.generic.etl.core.expression.ExpressionEvaluator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -14,8 +14,8 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.*;
 
+@Slf4j
 public class ConsumerDispatchService {
-    private static final Logger log = LoggerFactory.getLogger(ConsumerDispatchService.class);
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))

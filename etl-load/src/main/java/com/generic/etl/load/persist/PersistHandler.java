@@ -1,5 +1,7 @@
 package com.generic.etl.load.persist;
 
+import lombok.extern.slf4j.Slf4j;
+
 import com.generic.etl.common.model.OutputConfig;
 import com.generic.etl.common.model.Row;
 
@@ -10,11 +12,9 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+@Slf4j
 public class PersistHandler {
-    private static final Logger log = LoggerFactory.getLogger(PersistHandler.class);
     private final DataSource dataSource;
 
     public PersistHandler(DataSource dataSource) {

@@ -1,10 +1,10 @@
 package com.generic.etl.extract.adapter;
 
+import lombok.extern.slf4j.Slf4j;
+
 import com.generic.etl.common.model.DataSourceConfig;
 import com.generic.etl.common.model.PipelineConfig;
 import com.generic.etl.common.model.Row;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.sql.*;
 import java.util.LinkedHashMap;
@@ -15,8 +15,8 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+@Slf4j
 public class JdbcExtractor implements Extractor {
-    private static final Logger log = LoggerFactory.getLogger(JdbcExtractor.class);
     private final DataSourceManager dsManager;
 
     public JdbcExtractor(DataSourceManager dsManager) {

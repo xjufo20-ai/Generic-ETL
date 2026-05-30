@@ -1,9 +1,9 @@
 package com.generic.etl.core.config;
 
+import lombok.extern.slf4j.Slf4j;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.generic.etl.common.model.PipelineConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -14,8 +14,8 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@Slf4j
 public class PipelineConfigParser {
-    private static final Logger log = LoggerFactory.getLogger(PipelineConfigParser.class);
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{env:([^}]+)\\}\\}");
 
     private final ObjectMapper mapper;

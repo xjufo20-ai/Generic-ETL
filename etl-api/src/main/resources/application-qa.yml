@@ -1,0 +1,22 @@
+# ── QA profile: PostgreSQL, moderate logging ──
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/etldb_qa
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USER}
+    password: ${DB_PASS}
+
+logging:
+  level:
+    com.generic.etl: INFO
+    org.apache.camel: WARN
+
+etl:
+  retry:
+    max-retries: 2
+
+eureka:
+  client:
+    enabled: true
+    service-url:
+      defaultZone: http://eureka-qa:8761/eureka/

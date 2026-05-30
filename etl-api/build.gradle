@@ -2,6 +2,10 @@ plugins {
     id 'org.springframework.boot'
 }
 
+ext {
+    springCloudVersion = '2023.0.3'
+}
+
 dependencies {
     implementation project(':etl-common')
     implementation project(':etl-core')
@@ -12,6 +16,15 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-jdbc:3.3.5'
     implementation 'org.springframework.boot:spring-boot-starter-actuator:3.3.5'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.2'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
+    // Spring Cloud Eureka (optional — remove if using Nacos/Consul)
+    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
     runtimeOnly 'org.postgresql:postgresql:42.7.4'
     runtimeOnly 'com.h2database:h2:2.3.232'
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+    }
 }
