@@ -1,15 +1,15 @@
 dependencies {
     implementation project(':etl-common')
     implementation project(':etl-core')
-    implementation 'org.apache.camel.springboot:camel-spring-boot-starter:4.7.0'
-    implementation 'org.apache.camel.springboot:camel-jdbc-starter:4.7.0'
-    implementation 'org.apache.camel.springboot:camel-file-starter:4.7.0'
-    implementation 'org.apache.camel.springboot:camel-csv-starter:4.7.0'
-    implementation 'org.springframework.boot:spring-boot-starter-jdbc:3.3.5'
+    implementation "org.apache.camel.springboot:camel-spring-boot-starter:${camelVersion}"
+    implementation "org.apache.camel.springboot:camel-jdbc-starter:${camelVersion}"
+    implementation "org.apache.camel.springboot:camel-file-starter:${camelVersion}"
+    implementation "org.apache.camel.springboot:camel-micrometer-starter:${camelVersion}"
+    implementation 'org.springframework.boot:spring-boot-starter-jdbc'
     implementation 'com.zaxxer:HikariCP:5.1.0'
-    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.17.2'
+    implementation 'com.fasterxml.jackson.core:jackson-annotations'
     runtimeOnly 'com.oracle.database.jdbc:ojdbc11:23.5.0.24.07'
     runtimeOnly 'com.mysql:mysql-connector-j:9.0.0'
     runtimeOnly 'org.postgresql:postgresql:42.7.4'
-    runtimeOnly 'com.h2database:h2:2.3.232'
+    runtimeOnly 'com.h2database:h2'
 }

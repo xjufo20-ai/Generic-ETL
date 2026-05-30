@@ -8,7 +8,8 @@ import com.generic.etl.common.model.ConsumerRegistration;
 import com.generic.etl.core.config.PipelineConfigParser;
 import com.generic.etl.core.transform.TransformChain;
 import com.generic.etl.core.transform.TransformProcessor;
-import com.generic.etl.extract.adapter.*;
+import com.generic.etl.extract.adapter.CamelExtractAdapter;
+import com.generic.etl.extract.adapter.DataSourceManager;
 import com.generic.etl.load.LoadRouter;
 import com.generic.etl.load.dispatch.ConsumerDispatchService;
 import com.generic.etl.load.persist.PersistHandler;
@@ -17,6 +18,7 @@ import com.generic.etl.transform.filter.FilterProcessor;
 import com.generic.etl.transform.join.JoinProcessor;
 import com.generic.etl.transform.rename.RenameProcessor;
 import com.generic.etl.transform.typecast.TypeCastProcessor;
+import org.apache.camel.CamelContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.TaskScheduler;
@@ -48,19 +50,10 @@ public class EtlConfig {
         return new DataSourceManager();
     }
 
+    /** Camel-based extraction — single adapter handles all datasource types. */
     @Bean
-    public JdbcExtractor jdbcExtractor(DataSourceManager dsManager) {
-        return new JdbcExtractor(dsManager);
-    }
-
-    @Bean
-    public CsvExtractor csvExtractor() {
-        return new CsvExtractor();
-    }
-
-    @Bean
-    public ExtractorRegistry extractorRegistry(JdbcExtractor jdbc, CsvExtractor csv) {
-        return new ExtractorRegistry(List.of(jdbc, csv));
+    public CamelExtractAdapter camelExtractAdapter(CamelContext camelContext) {
+        return new CamelExtractAdapter(camelContext);
     }
 
     @Bean
@@ -138,9 +131,9 @@ public class EtlConfig {
     @Bean
     public PipelineExecutionService pipelineExecutionService(PipelineConfigParser configParser,
                                                                TransformChain transformChain,
-                                                               ExtractorRegistry extractorRegistry,
+                                                               CamelExtractAdapter extractAdapter,
                                                                LoadRouter loadRouter) {
-        return new PipelineExecutionService(configParser, transformChain, extractorRegistry, loadRouter);
+        return new PipelineExecutionService(configParser, transformChain, extractAdapter, loadRouter);
     }
 
     @Bean

@@ -12,13 +12,13 @@ dependencies {
     implementation project(':etl-extract')
     implementation project(':etl-transform')
     implementation project(':etl-load')
+    implementation "org.apache.camel.springboot:camel-spring-boot-starter:${camelVersion}"
     implementation 'org.springframework.boot:spring-boot-starter-web:3.3.5'
     implementation 'org.springframework.boot:spring-boot-starter-jdbc:3.3.5'
     implementation 'org.springframework.boot:spring-boot-starter-security:3.3.5'
     implementation 'org.springframework.boot:spring-boot-starter-actuator:3.3.5'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.2'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
-    // Spring Cloud Eureka (optional — remove if using Nacos/Consul)
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
     runtimeOnly 'org.postgresql:postgresql:42.7.4'
     runtimeOnly 'com.h2database:h2:2.3.232'

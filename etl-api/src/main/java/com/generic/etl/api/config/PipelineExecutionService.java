@@ -1,14 +1,13 @@
 package com.generic.etl.api.config;
 
-import lombok.extern.slf4j.Slf4j;
-
 import com.generic.etl.common.model.PipelineConfig;
 import com.generic.etl.common.model.PipelineRun;
 import com.generic.etl.common.model.Row;
 import com.generic.etl.core.config.PipelineConfigParser;
 import com.generic.etl.core.transform.TransformChain;
-import com.generic.etl.extract.adapter.ExtractorRegistry;
+import com.generic.etl.extract.adapter.CamelExtractAdapter;
 import com.generic.etl.load.LoadRouter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -25,7 +24,7 @@ public class PipelineExecutionService {
 
     private final PipelineConfigParser configParser;
     private final TransformChain transformChain;
-    private final ExtractorRegistry extractorRegistry;
+    private final CamelExtractAdapter extractAdapter;
     private final LoadRouter loadRouter;
     private final Map<Long, PipelineRun> runHistory = new ConcurrentHashMap<>();
     private final AtomicLong runIdSeq = new AtomicLong(1);
@@ -34,11 +33,11 @@ public class PipelineExecutionService {
 
     public PipelineExecutionService(PipelineConfigParser configParser,
                                      TransformChain transformChain,
-                                     ExtractorRegistry extractorRegistry,
+                                     CamelExtractAdapter extractAdapter,
                                      LoadRouter loadRouter) {
         this.configParser = configParser;
         this.transformChain = transformChain;
-        this.extractorRegistry = extractorRegistry;
+        this.extractAdapter = extractAdapter;
         this.loadRouter = loadRouter;
     }
 
@@ -72,7 +71,7 @@ public class PipelineExecutionService {
         return executeWithRetry(runId, json, 0);
     }
 
-    /** Retry a previously failed run by its run ID. */
+    /** Retry a previously failed run. */
     public PipelineRun retryRun(Long originalRunId, String pipelineJson) {
         PipelineRun original = runHistory.get(originalRunId);
         if (original == null) {
@@ -117,7 +116,8 @@ public class PipelineExecutionService {
         runHistory.put(runId, run);
 
         try {
-            var extracted = extractorRegistry.extract(config);
+            // Extract via Camel adapter — single adapter handles all source types
+            var extracted = extractAdapter.extract(config);
             var transformed = transformChain.apply(extracted, config);
             List<Row> rows = transformed.toList();
 
@@ -135,7 +135,6 @@ public class PipelineExecutionService {
                     config.getPipeline().getName(), attempt + 1, maxRetries + 1, e.getMessage());
 
             if (attempt < maxRetries) {
-                // Exponential backoff
                 long backoffMs = BASE_BACKOFF_MS * (long) Math.pow(2, attempt);
                 log.info("Retrying pipeline '{}' in {}ms...", config.getPipeline().getName(), backoffMs);
                 try {
@@ -143,8 +142,7 @@ public class PipelineExecutionService {
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                 }
-                // Retry with same runId
-                runHistory.remove(runId); // clear running status
+                runHistory.remove(runId);
                 return executeWithRetry(runId, pipelineJson, attempt + 1);
             }
 

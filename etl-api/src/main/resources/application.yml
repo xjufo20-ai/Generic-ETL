@@ -12,10 +12,20 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,camelroutes
   endpoint:
     health:
       show-details: always
+
+# ── Camel ──
+camel:
+  springboot:
+    name: GenericETL
+    main-run-controller: true
+  error-handler:
+    enabled: true
+  metrics:
+    enable-route-policy: true
 
 # ── Eureka (disabled by default; enable per profile) ──
 eureka:
@@ -24,7 +34,6 @@ eureka:
     service-url:
       defaultZone: http://localhost:8761/eureka/
 
-# ── API Key auth (override per profile) ──
-# Format: "key:ROLE,key2:ROLE2"
+# ── API Key auth ──
 etl:
   api-keys: sk-admin:ADMIN,sk-operator:OPERATOR,sk-viewer:VIEWER
