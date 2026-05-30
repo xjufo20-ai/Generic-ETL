@@ -1,0 +1,41 @@
+{
+  "pipeline": {
+    "name": "trade-volume-stats",
+    "version": "1.0",
+    "cron": "0 0 2 * * ?"
+  },
+  "datasource": {
+    "type": "mysql",
+    "connection": {
+      "url": "jdbc:mysql://{{env:DB_HOST}}:3306/tradedb",
+      "username": "{{env:DB_USER}}",
+      "password": "{{env:DB_PASS}}"
+    },
+    "query": "SELECT trade_date, SUM(amount) AS daily_volume, COUNT(*) AS trade_count FROM (SELECT trade_date, amount FROM trade_history WHERE trade_date < CURRENT_DATE UNION ALL SELECT CURRENT_DATE AS trade_date, amount FROM trades_today) t GROUP BY trade_date",
+    "cursor": { "column": "trade_date", "pageSize": 500 }
+  },
+  "inputSchema": {
+    "fields": [
+      {"name": "trade_date", "type": "DATETIME"},
+      {"name": "daily_volume", "type": "DECIMAL"},
+      {"name": "trade_count", "type": "LONG"}
+    ]
+  },
+  "transforms": [
+    {"type": "filter", "expression": "daily_volume > 0"},
+    {"type": "typeCast", "mappings": [
+      {"field": "daily_volume", "toType": "DECIMAL"},
+      {"field": "trade_count", "toType": "LONG"}
+    ]}
+  ],
+  "output": {
+    "persist": {
+      "enabled": true,
+      "threshold": 0,
+      "storage": {
+        "type": "postgresql",
+        "table": "etl_output.trade_daily_stats"
+      }
+    }
+  }
+}

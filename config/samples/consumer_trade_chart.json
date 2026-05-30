@@ -1,0 +1,20 @@
+{
+  "consumer": {
+    "name": "trade-chart-dashboard",
+    "endpoint": "http://dashboard:8080/api/chart/ingest"
+  },
+  "subscriptions": [
+    {
+      "pipeline": "trade-volume-stats",
+      "outputSchema": {
+        "fields": [
+          {"name": "trade_date", "type": "DATETIME"},
+          {"name": "daily_volume", "type": "DECIMAL"},
+          {"name": "trade_count", "type": "LONG"}
+        ]
+      },
+      "filter": "trade_count > 0",
+      "delivery": { "mode": "PULL", "batchSize": 500 }
+    }
+  ]
+}
