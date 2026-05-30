@@ -1,7 +1,7 @@
 package com.generic.etl.load;
 
 import com.generic.etl.common.model.ConsumerRegistration;
-import com.generic.etl.common.model.OutputConfig;
+import com.generic.etl.common.model.PersistConfig;
 import com.generic.etl.common.model.Row;
 import com.generic.etl.load.dispatch.ConsumerDispatchService;
 import com.generic.etl.load.persist.PersistHandler;
@@ -28,13 +28,13 @@ public class LoadRouter {
         this.inMemoryStore = inMemoryStore;
     }
 
-    public void route(String pipelineName, List<Row> rows, OutputConfig outputConfig) {
+    public void route(String pipelineName, List<Row> rows, PersistConfig persistConfig) {
         if (rows.isEmpty()) {
             log.info("Pipeline '{}' produced 0 rows, skipping load", pipelineName);
             return;
         }
 
-        int persisted = persistHandler.persistIfNeeded(rows, outputConfig);
+        int persisted = persistHandler.persistIfNeeded(rows, persistConfig);
         log.info("Pipeline '{}': {} rows persisted of {} total", pipelineName, persisted, rows.size());
 
         List<ConsumerRegistration> registrations = consumerRegistry.getOrDefault(pipelineName, List.of());

@@ -3,15 +3,10 @@ package com.generic.etl.common.model;
 import lombok.Data;
 
 @Data
-public class OutputConfig {
-    private PersistConfig persist;
-
-    @Data
-    public static class PersistConfig {
-        private boolean enabled;
-        private int threshold = 0;
-        private StorageConfig storage;
-    }
+public class PersistConfig {
+    private boolean enabled;
+    private int threshold = 0;
+    private StorageConfig storage;
 
     @Data
     public static class StorageConfig {

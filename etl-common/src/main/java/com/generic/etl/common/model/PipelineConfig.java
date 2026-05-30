@@ -10,7 +10,7 @@ public class PipelineConfig {
     private DataSourceConfig datasource;
     private SchemaConfig inputSchema;
     private List<TransformDef> transforms;
-    private OutputConfig output;
+    private PersistConfig output;
 
     @Data
     public static class Pipeline {

@@ -46,13 +46,11 @@ class PipelineConfigParserTest {
             ]}
           ],
           "output": {
-            "persist": {
-              "enabled": true,
-              "threshold": 1000,
-              "storage": {
-                "type": "postgresql",
-                "table": "output.test"
-              }
+            "enabled": true,
+            "threshold": 1000,
+            "storage": {
+              "type": "postgresql",
+              "table": "output.test"
             }
           }
         }
@@ -65,7 +63,7 @@ class PipelineConfigParserTest {
         assertEquals("filter", config.getTransforms().get(0).getType());
         assertEquals("rename", config.getTransforms().get(1).getType());
         assertEquals("aggregate", config.getTransforms().get(2).getType());
-        assertTrue(config.getOutput().getPersist().isEnabled());
+        assertTrue(config.getOutput().isEnabled());
     }
 
     @Test

@@ -11,35 +11,76 @@
   },
   "inputSchema": {
     "fields": [
-      {"name": "order_id", "type": "STRING"},
-      {"name": "product", "type": "STRING"},
-      {"name": "quantity", "type": "INTEGER"},
-      {"name": "price", "type": "DECIMAL"},
-      {"name": "region", "type": "STRING"},
-      {"name": "order_date", "type": "DATETIME"}
+      {
+        "name": "order_id",
+        "type": "STRING"
+      },
+      {
+        "name": "product",
+        "type": "STRING"
+      },
+      {
+        "name": "quantity",
+        "type": "INTEGER"
+      },
+      {
+        "name": "price",
+        "type": "DECIMAL"
+      },
+      {
+        "name": "region",
+        "type": "STRING"
+      },
+      {
+        "name": "order_date",
+        "type": "DATETIME"
+      }
     ]
   },
   "transforms": [
-    {"type": "filter", "expression": "quantity > 0 && price > 0"},
-    {"type": "typeCast", "mappings": [
-      {"field": "quantity", "toType": "INTEGER"},
-      {"field": "price", "toType": "DECIMAL"}
-    ]},
-    {"type": "aggregate",
-     "groupBy": ["region", "product"],
-     "aggregations": [
-       {"field": "quantity", "function": "SUM", "alias": "total_quantity"},
-       {"field": "price", "function": "SUM", "alias": "total_revenue"}
-     ]}
+    {
+      "type": "filter",
+      "expression": "quantity > 0 && price > 0"
+    },
+    {
+      "type": "typeCast",
+      "mappings": [
+        {
+          "field": "quantity",
+          "toType": "INTEGER"
+        },
+        {
+          "field": "price",
+          "toType": "DECIMAL"
+        }
+      ]
+    },
+    {
+      "type": "aggregate",
+      "groupBy": [
+        "region",
+        "product"
+      ],
+      "aggregations": [
+        {
+          "field": "quantity",
+          "function": "SUM",
+          "alias": "total_quantity"
+        },
+        {
+          "field": "price",
+          "function": "SUM",
+          "alias": "total_revenue"
+        }
+      ]
+    }
   ],
   "output": {
-    "persist": {
-      "enabled": true,
-      "threshold": 500,
-      "storage": {
-        "type": "postgresql",
-        "table": "etl_output.agg_sales_by_region_product"
-      }
+    "enabled": true,
+    "threshold": 500,
+    "storage": {
+      "type": "postgresql",
+      "table": "etl_output.agg_sales_by_region_product"
     }
   }
 }
