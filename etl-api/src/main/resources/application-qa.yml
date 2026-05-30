@@ -1,4 +1,4 @@
-# ── QA profile: PostgreSQL, moderate logging ──
+# ── QA profile ──
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/etldb_qa
@@ -14,6 +14,7 @@ logging:
 etl:
   retry:
     max-retries: 2
+  api-keys: ${ETL_API_KEYS:qa-admin:ADMIN,qa-operator:OPERATOR,qa-viewer:VIEWER}
 
 eureka:
   client:

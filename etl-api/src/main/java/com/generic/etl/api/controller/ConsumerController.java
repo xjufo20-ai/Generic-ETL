@@ -1,11 +1,13 @@
 package com.generic.etl.api.controller;
 
+import com.generic.etl.api.security.Roles;
 import com.generic.etl.common.dto.ApiResponse;
 import com.generic.etl.common.dto.DataResponse;
 import com.generic.etl.common.model.ConsumerRegistration;
 import com.generic.etl.common.model.Row;
 import com.generic.etl.load.InMemoryDataStore;
 import com.generic.etl.load.dispatch.ConsumerDispatchService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -25,6 +27,7 @@ public class ConsumerController {
     }
 
     @PostMapping("/register")
+    @PreAuthorize(Roles.IS_ADMIN)
     public ApiResponse<String> register(@RequestBody ConsumerRegistration registration) {
         String consumerName = registration.getConsumer().getName();
         consumerRegistry.computeIfAbsent(consumerName, k -> new ArrayList<>()).add(registration);
@@ -33,18 +36,20 @@ public class ConsumerController {
     }
 
     @GetMapping
+    @PreAuthorize(Roles.IS_AUTHENTICATED)
     public ApiResponse<List<String>> listConsumers() {
         return ApiResponse.ok(new ArrayList<>(consumerRegistry.keySet()));
     }
 
     @DeleteMapping("/{name}")
+    @PreAuthorize(Roles.IS_ADMIN)
     public ApiResponse<String> unregister(@PathVariable String name) {
         consumerRegistry.remove(name);
         return ApiResponse.ok("Consumer '" + name + "' unregistered");
     }
 
-    /** PULL: downstream fetches data for a pipeline. */
     @GetMapping("/data/{pipeline}")
+    @PreAuthorize(Roles.IS_AUTHENTICATED)
     public ApiResponse<DataResponse> pullData(
             @PathVariable String pipeline,
             @RequestParam String consumer) {
@@ -57,7 +62,6 @@ public class ConsumerController {
                     "' on pipeline '" + pipeline + "'");
         }
 
-        // Use first subscription's output schema
         ConsumerRegistration.Subscription sub = subs.get(0);
         List<Map<String, Object>> projected = dispatchService.projectAndFilter(rows, sub);
 

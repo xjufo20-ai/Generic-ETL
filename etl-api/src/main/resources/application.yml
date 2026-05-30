@@ -23,3 +23,8 @@ eureka:
     enabled: false
     service-url:
       defaultZone: http://localhost:8761/eureka/
+
+# ── API Key auth (override per profile) ──
+# Format: "key:ROLE,key2:ROLE2"
+etl:
+  api-keys: sk-admin:ADMIN,sk-operator:OPERATOR,sk-viewer:VIEWER
