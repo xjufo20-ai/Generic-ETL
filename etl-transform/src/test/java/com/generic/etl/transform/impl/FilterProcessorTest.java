@@ -1,8 +1,8 @@
-package com.generic.etl.transform;
+package com.generic.etl.transform.filterprocessortest;
 
 import com.generic.etl.common.model.Row;
 import com.generic.etl.common.model.TransformDef;
-import com.generic.etl.transform.filter.FilterProcessor;
+import com.generic.etl.transform.impl.FilterProcessor;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

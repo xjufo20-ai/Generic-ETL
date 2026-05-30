@@ -1,4 +1,4 @@
-package com.generic.etl.transform.typecast;
+package com.generic.etl.transform.impl;
 
 import com.generic.etl.common.model.FieldType;
 import com.generic.etl.common.model.Row;

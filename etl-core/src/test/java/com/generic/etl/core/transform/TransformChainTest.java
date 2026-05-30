@@ -3,9 +3,9 @@ package com.generic.etl.core.transform;
 import com.generic.etl.common.model.PipelineConfig;
 import com.generic.etl.common.model.Row;
 import com.generic.etl.common.model.TransformDef;
-import com.generic.etl.transform.aggregate.AggregateProcessor;
-import com.generic.etl.transform.filter.FilterProcessor;
-import com.generic.etl.transform.rename.RenameProcessor;
+import com.generic.etl.transform.impl.AggregateProcessor;
+import com.generic.etl.transform.impl.FilterProcessor;
+import com.generic.etl.transform.impl.RenameProcessor;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;

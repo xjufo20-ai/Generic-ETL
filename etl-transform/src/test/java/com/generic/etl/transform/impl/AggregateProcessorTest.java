@@ -1,8 +1,8 @@
-package com.generic.etl.transform;
+package com.generic.etl.transform.aggregateprocessortest;
 
 import com.generic.etl.common.model.Row;
 import com.generic.etl.common.model.TransformDef;
-import com.generic.etl.transform.aggregate.AggregateProcessor;
+import com.generic.etl.transform.impl.AggregateProcessor;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;

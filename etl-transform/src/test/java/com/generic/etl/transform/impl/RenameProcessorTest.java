@@ -1,8 +1,8 @@
-package com.generic.etl.transform;
+package com.generic.etl.transform.renameprocessortest;
 
 import com.generic.etl.common.model.Row;
 import com.generic.etl.common.model.TransformDef;
-import com.generic.etl.transform.rename.RenameProcessor;
+import com.generic.etl.transform.impl.RenameProcessor;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

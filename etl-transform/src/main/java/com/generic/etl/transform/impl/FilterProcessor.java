@@ -1,4 +1,4 @@
-package com.generic.etl.transform.filter;
+package com.generic.etl.transform.impl;
 
 import com.generic.etl.common.model.Row;
 import com.generic.etl.common.model.TransformDef;

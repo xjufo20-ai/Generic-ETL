@@ -1,7 +1,8 @@
-package com.generic.etl.extract.adapter;
+package com.generic.etl.extract.adapter.impl;
 
 import com.generic.etl.common.model.DataSourceConfig;
 import com.generic.etl.common.model.PipelineConfig;
+import com.generic.etl.extract.adapter.Extractor;
 import com.generic.etl.common.model.Row;
 import lombok.extern.slf4j.Slf4j;
 
