@@ -1,0 +1,11 @@
+dependencies {
+    implementation project(':etl-common')
+    implementation 'org.apache.camel.springboot:camel-spring-boot-starter:4.7.0'
+    implementation 'org.apache.camel.springboot:camel-jackson-starter:4.7.0'
+    implementation 'org.mvel:mvel2:2.5.2.Final'
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+
+    testImplementation project(':etl-transform')
+    testImplementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+}

@@ -1,0 +1,50 @@
+{
+  "pipeline": {
+    "name": "employee-salary-etl",
+    "version": "1.0",
+    "cron": "0 */10 * * * ?"
+  },
+  "datasource": {
+    "type": "oracle",
+    "connection": {
+      "url": "jdbc:oracle:thin:@localhost:1521:XE",
+      "username": "{{env:ORA_USER}}",
+      "password": "{{env:ORA_PASS}}",
+      "driverClass": "oracle.jdbc.OracleDriver"
+    },
+    "query": "SELECT id, name, dept, salary, created_at FROM employees",
+    "cursor": {
+      "column": "id",
+      "pageSize": 5000
+    }
+  },
+  "inputSchema": {
+    "fields": [
+      {"name": "id", "type": "LONG"},
+      {"name": "name", "type": "STRING"},
+      {"name": "dept", "type": "STRING"},
+      {"name": "salary", "type": "DECIMAL"},
+      {"name": "created_at", "type": "DATETIME"}
+    ]
+  },
+  "transforms": [
+    {"type": "filter", "expression": "salary > 0"},
+    {"type": "rename", "mappings": [{"from": "name", "to": "employee_name"}]},
+    {"type": "aggregate",
+     "groupBy": ["dept"],
+     "aggregations": [
+       {"field": "salary", "function": "SUM", "alias": "total_salary"},
+       {"field": "id", "function": "COUNT", "alias": "headcount"}
+     ]}
+  ],
+  "output": {
+    "persist": {
+      "enabled": true,
+      "threshold": 10000,
+      "storage": {
+        "type": "postgresql",
+        "table": "etl_output.agg_dept_salary"
+      }
+    }
+  }
+}

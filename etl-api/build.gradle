@@ -1,0 +1,17 @@
+plugins {
+    id 'org.springframework.boot'
+}
+
+dependencies {
+    implementation project(':etl-common')
+    implementation project(':etl-core')
+    implementation project(':etl-extract')
+    implementation project(':etl-transform')
+    implementation project(':etl-load')
+    implementation 'org.springframework.boot:spring-boot-starter-web:3.3.5'
+    implementation 'org.springframework.boot:spring-boot-starter-jdbc:3.3.5'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator:3.3.5'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.2'
+    runtimeOnly 'org.postgresql:postgresql:42.7.4'
+    runtimeOnly 'com.h2database:h2:2.3.232'
+}

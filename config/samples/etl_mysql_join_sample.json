@@ -1,0 +1,42 @@
+{
+  "pipeline": {
+    "name": "order-customer-etl",
+    "version": "1.0"
+  },
+  "datasource": {
+    "type": "mysql",
+    "connection": {
+      "url": "jdbc:mysql://localhost:3306/orderdb",
+      "username": "{{env:MYSQL_USER}}",
+      "password": "{{env:MYSQL_PASS}}"
+    },
+    "query": "SELECT id, customer_id, amount, status FROM orders",
+    "cursor": {
+      "column": "id",
+      "pageSize": 2000
+    }
+  },
+  "inputSchema": {
+    "fields": [
+      {"name": "id", "type": "LONG"},
+      {"name": "customer_id", "type": "LONG"},
+      {"name": "amount", "type": "DECIMAL"},
+      {"name": "status", "type": "STRING"}
+    ]
+  },
+  "transforms": [
+    {"type": "filter", "expression": "status == 'completed'"},
+    {"type": "join",
+     "query": "SELECT id AS cust_id, name AS customer_name, tier FROM customers WHERE id = :customer_id",
+     "on": "orders.customer_id = customers.id",
+     "joinType": "INNER"
+    },
+    {"type": "rename", "mappings": [{"from": "tier", "to": "customer_tier"}]}
+  ],
+  "output": {
+    "persist": {
+      "enabled": false,
+      "threshold": 0
+    }
+  }
+}

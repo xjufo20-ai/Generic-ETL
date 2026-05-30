@@ -1,0 +1,23 @@
+{
+  "consumer": {
+    "name": "payroll-service",
+    "endpoint": "http://payroll:8080/api/v1/data/ingest"
+  },
+  "subscriptions": [
+    {
+      "pipeline": "employee-salary-etl",
+      "outputSchema": {
+        "fields": [
+          {"name": "dept", "type": "STRING"},
+          {"name": "total_salary", "type": "DECIMAL"},
+          {"name": "headcount", "type": "LONG"}
+        ]
+      },
+      "filter": "total_salary > 50000",
+      "delivery": {
+        "mode": "PULL",
+        "batchSize": 200
+      }
+    }
+  ]
+}
