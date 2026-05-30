@@ -1,6 +1,5 @@
 dependencies {
     implementation project(':etl-common')
-    implementation "org.apache.camel.springboot:camel-spring-boot-starter:${camelVersion}"
     implementation 'org.mvel:mvel2:2.5.2.Final'
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'com.fasterxml.jackson.core:jackson-databind'

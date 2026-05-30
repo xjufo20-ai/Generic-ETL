@@ -1,10 +1,5 @@
 dependencies {
     implementation project(':etl-common')
-    implementation project(':etl-core')
-    implementation "org.apache.camel.springboot:camel-spring-boot-starter:${camelVersion}"
-    implementation "org.apache.camel.springboot:camel-jdbc-starter:${camelVersion}"
-    implementation "org.apache.camel.springboot:camel-file-starter:${camelVersion}"
-    implementation "org.apache.camel.springboot:camel-micrometer-starter:${camelVersion}"
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
     implementation 'com.zaxxer:HikariCP:5.1.0'
     implementation 'com.fasterxml.jackson.core:jackson-annotations'

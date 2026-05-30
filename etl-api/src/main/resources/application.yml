@@ -1,4 +1,3 @@
-# ── Shared base config (applied to all profiles) ──
 server:
   port: 8080
 
@@ -12,28 +11,16 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,camelroutes
+        include: health,info,metrics
   endpoint:
     health:
       show-details: always
 
-# ── Camel ──
-camel:
-  springboot:
-    name: GenericETL
-    main-run-controller: true
-  error-handler:
-    enabled: true
-  metrics:
-    enable-route-policy: true
-
-# ── Eureka (disabled by default; enable per profile) ──
 eureka:
   client:
     enabled: false
     service-url:
       defaultZone: http://localhost:8761/eureka/
 
-# ── API Key auth ──
 etl:
   api-keys: sk-admin:ADMIN,sk-operator:OPERATOR,sk-viewer:VIEWER

@@ -7,47 +7,28 @@ plugins {
 allprojects {
     group = 'com.generic.etl'
     version = '0.1.0-SNAPSHOT'
-
-    repositories {
-        mavenCentral()
-    }
-}
-
-ext {
-    camelVersion = '4.7.0'
+    repositories { mavenCentral() }
 }
 
 subprojects {
     apply plugin: 'java'
     apply plugin: 'io.spring.dependency-management'
 
-    java {
-        toolchain {
-            languageVersion = JavaLanguageVersion.of(22)
-        }
-    }
+    java { toolchain { languageVersion = JavaLanguageVersion.of(22) } }
 
     dependencyManagement {
-        imports {
-            mavenBom 'org.springframework.boot:spring-boot-dependencies:3.3.5'
-        }
+        imports { mavenBom 'org.springframework.boot:spring-boot-dependencies:3.3.5' }
     }
 
     dependencies {
         compileOnly 'org.projectlombok:lombok:1.18.34'
         annotationProcessor 'org.projectlombok:lombok:1.18.34'
-
         testImplementation 'org.springframework.boot:spring-boot-starter-test'
         testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
         testCompileOnly 'org.projectlombok:lombok:1.18.34'
         testAnnotationProcessor 'org.projectlombok:lombok:1.18.34'
     }
 
-    tasks.withType(JavaCompile).configureEach {
-        options.compilerArgs.add('-parameters')
-    }
-
-    test {
-        useJUnitPlatform()
-    }
+    tasks.withType(JavaCompile).configureEach { options.compilerArgs.add('-parameters') }
+    test { useJUnitPlatform() }
 }

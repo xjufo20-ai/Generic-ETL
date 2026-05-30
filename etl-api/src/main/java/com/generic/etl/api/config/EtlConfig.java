@@ -8,8 +8,7 @@ import com.generic.etl.common.model.ConsumerRegistration;
 import com.generic.etl.core.config.PipelineConfigParser;
 import com.generic.etl.core.transform.TransformChain;
 import com.generic.etl.core.transform.TransformProcessor;
-import com.generic.etl.extract.adapter.CamelExtractAdapter;
-import com.generic.etl.extract.adapter.DataSourceManager;
+import com.generic.etl.extract.adapter.*;
 import com.generic.etl.load.LoadRouter;
 import com.generic.etl.load.dispatch.ConsumerDispatchService;
 import com.generic.etl.load.persist.PersistHandler;
@@ -18,7 +17,6 @@ import com.generic.etl.transform.filter.FilterProcessor;
 import com.generic.etl.transform.join.JoinProcessor;
 import com.generic.etl.transform.rename.RenameProcessor;
 import com.generic.etl.transform.typecast.TypeCastProcessor;
-import org.apache.camel.CamelContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.TaskScheduler;
@@ -45,81 +43,69 @@ public class EtlConfig {
         return new PipelineConfigParser(mapper);
     }
 
+    // ── Extraction ────────────────────────────────────────
+
     @Bean
     public DataSourceManager dataSourceManager() {
         return new DataSourceManager();
     }
 
-    /** Camel-based extraction — single adapter handles all datasource types. */
     @Bean
-    public CamelExtractAdapter camelExtractAdapter(CamelContext camelContext) {
-        return new CamelExtractAdapter(camelContext);
+    public JdbcExtractor jdbcExtractor(DataSourceManager dsManager) {
+        return new JdbcExtractor(dsManager);
     }
 
     @Bean
-    public FilterProcessor filterProcessor() {
-        return new FilterProcessor();
+    public CsvExtractor csvExtractor() {
+        return new CsvExtractor();
     }
 
     @Bean
-    public RenameProcessor renameProcessor() {
-        return new RenameProcessor();
+    public ExtractorRegistry extractorRegistry(JdbcExtractor jdbc, CsvExtractor csv) {
+        return new ExtractorRegistry(List.of(jdbc, csv));
     }
 
-    @Bean
-    public TypeCastProcessor typeCastProcessor() {
-        return new TypeCastProcessor();
-    }
+    // ── Transform ─────────────────────────────────────────
 
     @Bean
-    public AggregateProcessor aggregateProcessor() {
-        return new AggregateProcessor();
-    }
+    public FilterProcessor filterProcessor() { return new FilterProcessor(); }
 
     @Bean
-    public JoinProcessor joinProcessor(DataSource dataSource) {
-        return new JoinProcessor(dataSource);
-    }
+    public RenameProcessor renameProcessor() { return new RenameProcessor(); }
+
+    @Bean
+    public TypeCastProcessor typeCastProcessor() { return new TypeCastProcessor(); }
+
+    @Bean
+    public AggregateProcessor aggregateProcessor() { return new AggregateProcessor(); }
+
+    @Bean
+    public JoinProcessor joinProcessor(DataSource dataSource) { return new JoinProcessor(dataSource); }
 
     @Bean
     public TransformChain transformChain(List<TransformProcessor> processors) {
         Map<String, TransformProcessor> map = new LinkedHashMap<>();
-        map.put("filter", findProcessor(processors, FilterProcessor.class));
-        map.put("rename", findProcessor(processors, RenameProcessor.class));
-        map.put("typeCast", findProcessor(processors, TypeCastProcessor.class));
-        map.put("aggregate", findProcessor(processors, AggregateProcessor.class));
-        map.put("join", findProcessor(processors, JoinProcessor.class));
+        map.put("filter", find(processors, FilterProcessor.class));
+        map.put("rename", find(processors, RenameProcessor.class));
+        map.put("typeCast", find(processors, TypeCastProcessor.class));
+        map.put("aggregate", find(processors, AggregateProcessor.class));
+        map.put("join", find(processors, JoinProcessor.class));
         return new TransformChain(map);
     }
 
-    @Bean
-    public PersistHandler persistHandler(DataSource dataSource) {
-        return new PersistHandler(dataSource);
-    }
+    // ── Load ──────────────────────────────────────────────
 
     @Bean
-    public ConsumerDispatchService consumerDispatchService() {
-        return new ConsumerDispatchService();
-    }
+    public PersistHandler persistHandler(DataSource dataSource) { return new PersistHandler(dataSource); }
 
     @Bean
-    public Map<String, List<ConsumerRegistration>> consumerRegistry() {
-        return new ConcurrentHashMap<>();
-    }
+    public ConsumerDispatchService consumerDispatchService() { return new ConsumerDispatchService(); }
 
     @Bean
-    public Map<String, String> pipelineStore() {
-        return new ConcurrentHashMap<>();
-    }
+    public Map<String, List<ConsumerRegistration>> consumerRegistry() { return new ConcurrentHashMap<>(); }
 
     @Bean
-    public TaskScheduler taskScheduler() {
-        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
-        scheduler.setPoolSize(4);
-        scheduler.setThreadNamePrefix("etl-scheduler-");
-        scheduler.initialize();
-        return scheduler;
-    }
+    public Map<String, String> pipelineStore() { return new ConcurrentHashMap<>(); }
 
     @Bean
     public LoadRouter loadRouter(PersistHandler persistHandler,
@@ -128,12 +114,23 @@ public class EtlConfig {
         return new LoadRouter(persistHandler, dispatchService, consumerRegistry);
     }
 
+    // ── Orchestration ─────────────────────────────────────
+
+    @Bean
+    public TaskScheduler taskScheduler() {
+        ThreadPoolTaskScheduler s = new ThreadPoolTaskScheduler();
+        s.setPoolSize(4);
+        s.setThreadNamePrefix("etl-scheduler-");
+        s.initialize();
+        return s;
+    }
+
     @Bean
     public PipelineExecutionService pipelineExecutionService(PipelineConfigParser configParser,
                                                                TransformChain transformChain,
-                                                               CamelExtractAdapter extractAdapter,
+                                                               ExtractorRegistry extractorRegistry,
                                                                LoadRouter loadRouter) {
-        return new PipelineExecutionService(configParser, transformChain, extractAdapter, loadRouter);
+        return new PipelineExecutionService(configParser, transformChain, extractorRegistry, loadRouter);
     }
 
     @Bean
@@ -144,10 +141,8 @@ public class EtlConfig {
         return new PipelineScheduler(taskScheduler, executionService, configParser, pipelineStore);
     }
 
-    private TransformProcessor findProcessor(List<TransformProcessor> processors, Class<?> type) {
-        return processors.stream()
-                .filter(p -> type.isAssignableFrom(p.getClass()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("No processor found for " + type.getSimpleName()));
+    private TransformProcessor find(List<TransformProcessor> list, Class<?> type) {
+        return list.stream().filter(p -> type.isAssignableFrom(p.getClass())).findFirst()
+                .orElseThrow(() -> new IllegalStateException("Missing processor: " + type.getSimpleName()));
     }
 }
