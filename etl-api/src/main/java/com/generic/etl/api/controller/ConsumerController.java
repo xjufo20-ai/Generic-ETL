@@ -19,11 +19,14 @@ import java.util.Map;
 public class ConsumerController {
     private final Map<String, List<ConsumerRegistration>> consumerRegistry;
     private final ConsumerDispatchService dispatchService;
+    private final InMemoryDataStore inMemoryStore;
 
     public ConsumerController(Map<String, List<ConsumerRegistration>> consumerRegistry,
-                               ConsumerDispatchService dispatchService) {
+                               ConsumerDispatchService dispatchService,
+                               InMemoryDataStore inMemoryStore) {
         this.consumerRegistry = consumerRegistry;
         this.dispatchService = dispatchService;
+        this.inMemoryStore = inMemoryStore;
     }
 
     @PostMapping("/register")
@@ -52,9 +55,11 @@ public class ConsumerController {
     @PreAuthorize(Roles.IS_AUTHENTICATED)
     public ApiResponse<DataResponse> pullData(
             @PathVariable String pipeline,
-            @RequestParam String consumer) {
+            @RequestParam String consumer,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "500") int pageSize) {
 
-        List<Row> rows = InMemoryDataStore.get(pipeline);
+        List<Row> rows = inMemoryStore.get(pipeline);
         List<ConsumerRegistration.Subscription> subs = findSubscriptions(consumer, pipeline);
 
         if (subs.isEmpty()) {
@@ -65,12 +70,20 @@ public class ConsumerController {
         ConsumerRegistration.Subscription sub = subs.get(0);
         List<Map<String, Object>> projected = dispatchService.projectAndFilter(rows, sub);
 
+        int totalPages = projected.isEmpty() ? 0 : (int) Math.ceil((double) projected.size() / pageSize);
+        int from = Math.min(page * pageSize, projected.size());
+        int to = Math.min(from + pageSize, projected.size());
+        List<Map<String, Object>> pageData = projected.subList(from, to);
+
         DataResponse response = DataResponse.builder()
                 .pipeline(pipeline)
                 .consumer(consumer)
                 .totalRows(projected.size())
-                .data(projected)
-                .hasMore(false)
+                .page(page)
+                .pageSize(pageSize)
+                .totalPages(totalPages)
+                .data(pageData)
+                .hasMore(page < totalPages - 1)
                 .build();
 
         return ApiResponse.ok(response);

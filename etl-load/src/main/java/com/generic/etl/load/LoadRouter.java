@@ -1,14 +1,12 @@
 package com.generic.etl.load;
 
-import lombok.extern.slf4j.Slf4j;
-
 import com.generic.etl.common.model.ConsumerRegistration;
 import com.generic.etl.common.model.OutputConfig;
 import com.generic.etl.common.model.Row;
 import com.generic.etl.load.dispatch.ConsumerDispatchService;
 import com.generic.etl.load.persist.PersistHandler;
+import lombok.extern.slf4j.Slf4j;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -18,36 +16,33 @@ public class LoadRouter {
     private final PersistHandler persistHandler;
     private final ConsumerDispatchService dispatchService;
     private final Map<String, List<ConsumerRegistration>> consumerRegistry;
+    private final InMemoryDataStore inMemoryStore;
 
     public LoadRouter(PersistHandler persistHandler,
                       ConsumerDispatchService dispatchService,
-                      Map<String, List<ConsumerRegistration>> consumerRegistry) {
+                      Map<String, List<ConsumerRegistration>> consumerRegistry,
+                      InMemoryDataStore inMemoryStore) {
         this.persistHandler = persistHandler;
         this.dispatchService = dispatchService;
         this.consumerRegistry = consumerRegistry;
+        this.inMemoryStore = inMemoryStore;
     }
 
-    /**
-     * Route transformed rows: persist if threshold met, dispatch to consumers.
-     */
     public void route(String pipelineName, List<Row> rows, OutputConfig outputConfig) {
         if (rows.isEmpty()) {
             log.info("Pipeline '{}' produced 0 rows, skipping load", pipelineName);
             return;
         }
 
-        // 1. Persist to intermediate storage if threshold met
         int persisted = persistHandler.persistIfNeeded(rows, outputConfig);
         log.info("Pipeline '{}': {} rows persisted of {} total", pipelineName, persisted, rows.size());
 
-        // 2. Dispatch to registered consumers
         List<ConsumerRegistration> registrations = consumerRegistry.getOrDefault(pipelineName, List.of());
         if (!registrations.isEmpty()) {
             dispatchService.dispatch(pipelineName, rows, registrations);
         }
 
-        // 3. Store in-memory for PULL consumers
-        InMemoryDataStore.put(pipelineName, rows);
+        inMemoryStore.put(pipelineName, rows);
         log.info("Pipeline '{}': {} rows staged for PULL consumers", pipelineName, rows.size());
     }
 }

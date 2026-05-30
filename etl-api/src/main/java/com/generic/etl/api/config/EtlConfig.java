@@ -10,6 +10,7 @@ import com.generic.etl.core.transform.TransformChain;
 import com.generic.etl.core.transform.TransformProcessor;
 import com.generic.etl.extract.adapter.*;
 import com.generic.etl.extract.adapter.impl.*;
+import com.generic.etl.load.InMemoryDataStore;
 import com.generic.etl.load.LoadRouter;
 import com.generic.etl.load.dispatch.ConsumerDispatchService;
 import com.generic.etl.load.persist.PersistHandler;
@@ -109,10 +110,14 @@ public class EtlConfig {
     public Map<String, String> pipelineStore() { return new ConcurrentHashMap<>(); }
 
     @Bean
+    public InMemoryDataStore inMemoryDataStore() { return new InMemoryDataStore(3600); }
+
+    @Bean
     public LoadRouter loadRouter(PersistHandler persistHandler,
                                   ConsumerDispatchService dispatchService,
-                                  Map<String, List<ConsumerRegistration>> consumerRegistry) {
-        return new LoadRouter(persistHandler, dispatchService, consumerRegistry);
+                                  Map<String, List<ConsumerRegistration>> consumerRegistry,
+                                  InMemoryDataStore inMemoryDataStore) {
+        return new LoadRouter(persistHandler, dispatchService, consumerRegistry, inMemoryDataStore);
     }
 
     // ── Orchestration ─────────────────────────────────────

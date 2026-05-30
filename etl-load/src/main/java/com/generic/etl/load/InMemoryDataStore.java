@@ -1,27 +1,48 @@
 package com.generic.etl.load;
 
 import com.generic.etl.common.model.Row;
-
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Simple in-memory store for PULL-mode data access.
- * In production, this would be backed by Redis or similar.
+ * Spring-managed bean for PULL-mode consumer data with TTL-based eviction.
+ * Each pipeline's data expires after the configured TTL (default 1 hour).
  */
 public class InMemoryDataStore {
-    private static final Map<String, List<Row>> store = new ConcurrentHashMap<>();
+    private final Map<String, CacheEntry> store = new ConcurrentHashMap<>();
+    private final long ttlSeconds;
 
-    public static void put(String pipeline, List<Row> rows) {
-        store.put(pipeline, rows);
+    public InMemoryDataStore() {
+        this(3600);
     }
 
-    public static List<Row> get(String pipeline) {
-        return store.getOrDefault(pipeline, List.of());
+    public InMemoryDataStore(long ttlSeconds) {
+        this.ttlSeconds = ttlSeconds;
     }
 
-    public static void clear(String pipeline) {
+    public void put(String pipeline, List<Row> rows) {
+        store.put(pipeline, new CacheEntry(rows, Instant.now().plusSeconds(ttlSeconds)));
+    }
+
+    public List<Row> get(String pipeline) {
+        CacheEntry entry = store.get(pipeline);
+        if (entry == null || entry.expiresAt.isBefore(Instant.now())) {
+            store.remove(pipeline);
+            return List.of();
+        }
+        return entry.rows;
+    }
+
+    public void clear(String pipeline) {
         store.remove(pipeline);
     }
+
+    /** Remove all expired entries. Called periodically by scheduler. */
+    public void evictExpired() {
+        store.entrySet().removeIf(e -> e.getValue().expiresAt.isBefore(Instant.now()));
+    }
+
+    private record CacheEntry(List<Row> rows, Instant expiresAt) {}
 }

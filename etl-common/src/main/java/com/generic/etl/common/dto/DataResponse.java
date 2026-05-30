@@ -15,6 +15,9 @@ public class DataResponse {
     private String pipeline;
     private String consumer;
     private int totalRows;
+    private int page;
+    private int pageSize;
+    private int totalPages;
     private List<Map<String, Object>> data;
     private String cursor; // for pagination
     private boolean hasMore;
