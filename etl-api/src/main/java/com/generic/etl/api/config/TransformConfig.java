@@ -1,6 +1,6 @@
 package com.generic.etl.api.config;
 
-import com.generic.etl.core.transform.TransformChain;
+import com.generic.etl.core.transform.TransformPipeline;
 import com.generic.etl.core.transform.TransformProcessor;
 import com.generic.etl.transform.impl.*;
 import org.springframework.context.annotation.Bean;
@@ -21,14 +21,14 @@ public class TransformConfig {
     @Bean public JoinProcessor joinProcessor(DataSource dataSource) { return new JoinProcessor(dataSource); }
 
     @Bean
-    public TransformChain transformChain(List<TransformProcessor> processors) {
+    public TransformPipeline transformPipeline(List<TransformProcessor> processors) {
         Map<String, TransformProcessor> map = new LinkedHashMap<>();
         map.put("filter", find(processors, FilterProcessor.class));
         map.put("rename", find(processors, RenameProcessor.class));
         map.put("typeCast", find(processors, TypeCastProcessor.class));
         map.put("aggregate", find(processors, AggregateProcessor.class));
         map.put("join", find(processors, JoinProcessor.class));
-        return new TransformChain(map);
+        return new TransformPipeline(map);
     }
 
     private TransformProcessor find(List<TransformProcessor> list, Class<?> type) {

@@ -1,5 +1,6 @@
 package com.generic.etl.api.config;
 
+import com.generic.etl.api.store.StateStore;
 import com.generic.etl.load.ConsumerRegistry;
 import com.generic.etl.load.InMemoryDataStore;
 import com.generic.etl.load.LoadRouter;
@@ -15,8 +16,15 @@ public class LoadConfig {
 
     @Bean public PersistHandler persistHandler(DataSource dataSource) { return new PersistHandler(dataSource); }
     @Bean public ConsumerDispatchService consumerDispatchService() { return new ConsumerDispatchService(); }
-    @Bean public ConsumerRegistry consumerRegistry() { return new ConsumerRegistry(); }
-    @Bean public InMemoryDataStore inMemoryDataStore() { return new InMemoryDataStore(3600); }
+
+    @Bean
+    public ConsumerRegistry consumerRegistry(StateStore store) {
+        ConsumerRegistry registry = new ConsumerRegistry();
+        store.getAllConsumers().forEach(registry::register);
+        return registry;
+    }
+
+    @Bean public InMemoryDataStore inMemoryDataStore() { return new InMemoryDataStore(3600, 100_000); }
 
     @Bean
     public LoadRouter loadRouter(PersistHandler persistHandler, ConsumerDispatchService dispatchService,

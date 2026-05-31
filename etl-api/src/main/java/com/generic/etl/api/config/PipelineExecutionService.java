@@ -4,7 +4,7 @@ import com.generic.etl.common.model.PipelineConfig;
 import com.generic.etl.common.model.PipelineRun;
 import com.generic.etl.common.model.Row;
 import com.generic.etl.core.config.PipelineConfigParser;
-import com.generic.etl.core.transform.TransformChain;
+import com.generic.etl.core.transform.TransformPipeline;
 import com.generic.etl.api.metrics.EtlMetrics;
 import com.generic.etl.extract.adapter.ExtractorRegistry;
 import com.generic.etl.load.LoadRouter;
@@ -24,7 +24,7 @@ public class PipelineExecutionService {
     private static final long BASE_BACKOFF_MS = 1000;
 
     private final PipelineConfigParser configParser;
-    private final TransformChain transformChain;
+    private final TransformPipeline transformPipeline;
     private final ExtractorRegistry extractorRegistry;
     private final LoadRouter loadRouter;
     private final EtlMetrics metrics;
@@ -34,11 +34,11 @@ public class PipelineExecutionService {
     private int maxRetries = DEFAULT_MAX_RETRIES;
 
     public PipelineExecutionService(PipelineConfigParser configParser,
-                                     TransformChain transformChain,
+                                     TransformPipeline transformPipeline,
                                      ExtractorRegistry extractorRegistry,
                                      LoadRouter loadRouter, EtlMetrics metrics) {
         this.configParser = configParser;
-        this.transformChain = transformChain;
+        this.transformPipeline = transformPipeline;
         this.extractorRegistry = extractorRegistry;
         this.loadRouter = loadRouter;
         this.metrics = metrics;
@@ -53,8 +53,8 @@ public class PipelineExecutionService {
         return executeWithRetry(runId, pipelineJson, 0);
     }
 
-    public PipelineRun executeByName(String pipelineName, Map<String, String> pipelineStore) {
-        String json = pipelineStore.get(pipelineName);
+    public PipelineRun executeByName(String pipelineName, com.generic.etl.api.store.StateStore store) {
+        String json = store.getPipeline(pipelineName);
         if (json == null) {
             long runId = runIdSeq.getAndIncrement();
             PipelineRun failed = PipelineRun.builder()
@@ -110,7 +110,7 @@ public class PipelineExecutionService {
 
         try {
             var extracted = extractorRegistry.extract(config);
-            var transformed = transformChain.apply(extracted, config);
+            var transformed = transformPipeline.build(config).apply(extracted);
             List<Row> rows = transformed.toList();
 
             loadRouter.route(config.getPipeline().getName(), rows, config.getOutput());

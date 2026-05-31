@@ -3,27 +3,26 @@ package com.generic.etl.api.controller;
 import com.generic.etl.api.config.PipelineExecutionService;
 import com.generic.etl.api.config.PipelineScheduler;
 import com.generic.etl.api.security.Roles;
+import com.generic.etl.api.store.StateStore;
 import com.generic.etl.common.dto.ApiResponse;
 import com.generic.etl.common.model.PipelineRun;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/pipelines")
 public class PipelineController {
     private final PipelineExecutionService executionService;
     private final PipelineScheduler scheduler;
-    private final Map<String, String> pipelineStore;
+    private final StateStore store;
 
     public PipelineController(PipelineExecutionService executionService,
-                               PipelineScheduler scheduler,
-                               Map<String, String> pipelineStore) {
+                               PipelineScheduler scheduler, StateStore store) {
         this.executionService = executionService;
         this.scheduler = scheduler;
-        this.pipelineStore = pipelineStore;
+        this.store = store;
     }
 
     @PostMapping("/execute")
@@ -35,13 +34,13 @@ public class PipelineController {
     @PostMapping("/{name}/execute")
     @PreAuthorize(Roles.IS_ADMIN_OR_OPERATOR)
     public ApiResponse<PipelineRun> executeByName(@PathVariable String name) {
-        return ApiResponse.ok(executionService.executeByName(name, pipelineStore));
+        return ApiResponse.ok(executionService.executeByName(name, store));
     }
 
     @PostMapping("/{name}/retry")
     @PreAuthorize(Roles.IS_ADMIN_OR_OPERATOR)
     public ApiResponse<PipelineRun> retry(@PathVariable String name, @RequestParam Long runId) {
-        String json = pipelineStore.get(name);
+        String json = store.getPipeline(name);
         if (json == null) return ApiResponse.error("Pipeline not found: " + name);
         return ApiResponse.ok(executionService.retryRun(runId, json));
     }
@@ -49,7 +48,7 @@ public class PipelineController {
     @PostMapping("/register")
     @PreAuthorize(Roles.IS_ADMIN)
     public ApiResponse<String> register(@RequestBody String pipelineJson) {
-        scheduler.register(pipelineJson);
+        try { scheduler.register(pipelineJson); } catch (Exception e) { return ApiResponse.error(e.getMessage()); }
         return ApiResponse.ok("Pipeline registered");
     }
 
@@ -63,13 +62,13 @@ public class PipelineController {
     @GetMapping
     @PreAuthorize(Roles.IS_AUTHENTICATED)
     public ApiResponse<List<String>> listPipelines() {
-        return ApiResponse.ok(pipelineStore.keySet().stream().sorted().toList());
+        return ApiResponse.ok(store.getAllPipelines().keySet().stream().sorted().toList());
     }
 
     @GetMapping("/{name}")
     @PreAuthorize(Roles.IS_AUTHENTICATED)
     public ApiResponse<String> getPipeline(@PathVariable String name) {
-        String json = pipelineStore.get(name);
+        String json = store.getPipeline(name);
         if (json == null) return ApiResponse.error("Pipeline not found: " + name);
         return ApiResponse.ok(json);
     }
