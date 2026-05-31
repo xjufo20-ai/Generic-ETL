@@ -51,8 +51,9 @@ public abstract class TransformDef {
     public static class JoinDef extends TransformDef {
         public JoinDef() { this.type = "join"; }
         private String query;
-        private String on;
-        private String joinType; // INNER, LEFT
+        private String leftKey;   // column name in left (input) rows
+        private String rightKey;  // column index (1-based) or name in join result set
+        private String joinType;  // INNER, LEFT
     }
 
     @Data

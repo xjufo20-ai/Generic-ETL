@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
-public class TransformChain {
+class TransformChain {
 
     private final Map<String, TransformProcessor> processors;
 

@@ -14,7 +14,6 @@ import java.util.regex.Pattern;
 public class JoinProcessor implements TransformProcessor {
     private static final Pattern HOLDER = Pattern.compile(":([a-zA-Z_][a-zA-Z0-9_]*)");
     private final DataSource dataSource;
-
     public JoinProcessor(DataSource dataSource) { this.dataSource = dataSource; }
     @Override public Row process(Row row, TransformDef def) { throw new UnsupportedOperationException("Use processSet()"); }
     @Override public boolean isSetProcessor() { return true; }
@@ -25,10 +24,10 @@ public class JoinProcessor implements TransformProcessor {
         if (j.getQuery() == null || j.getQuery().isBlank()) return rows;
 
         String joinType = j.getJoinType() != null ? j.getJoinType().toUpperCase() : "INNER";
-        String leftKey = j.getOn() != null ? j.getOn() : "id";
+        String leftKey = j.getRightKey() != null ? j.getRightKey() : (j.getLeftKey() != null ? j.getLeftKey() : "id");
+        int rightKeyIdx = j.getRightKey() != null ? Integer.parseInt(j.getRightKey()) : 1;
         List<String> params = extractParams(j.getQuery());
 
-        // Batch join: collect unique values for each placeholder
         Map<String, Set<Object>> paramValues = new LinkedHashMap<>();
         for (String p : params) paramValues.put(p, new LinkedHashSet<>());
         for (Row row : rows) {
@@ -43,7 +42,6 @@ public class JoinProcessor implements TransformProcessor {
             bindValues.addAll(vals);
         }
 
-        // Fetch all join results in one query
         Map<String, List<Row>> joinResults = new LinkedHashMap<>();
         try (var conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             for (int i = 0; i < bindValues.size(); i++) ps.setObject(i + 1, bindValues.get(i));
@@ -52,33 +50,23 @@ public class JoinProcessor implements TransformProcessor {
                 while (rs.next()) {
                     Row joined = new Row();
                     for (int i = 1; i <= colCount; i++) joined.put(rs.getMetaData().getColumnLabel(i), rs.getObject(i));
-                    joinResults.computeIfAbsent(String.valueOf(rs.getObject(1)), k -> new ArrayList<>()).add(joined);
+                    joinResults.computeIfAbsent(String.valueOf(rs.getObject(rightKeyIdx)), k -> new ArrayList<>()).add(joined);
                 }
             }
         } catch (Exception e) { throw new RuntimeException("Join failed", e); }
 
-        // Merge using explicit leftKey
         List<Row> result = new ArrayList<>();
         for (Row leftRow : rows) {
             String key = String.valueOf(leftRow.get(leftKey));
             List<Row> matches = joinResults.getOrDefault(key, List.of());
             if (!matches.isEmpty()) {
                 for (Row match : matches) {
-                    Row merged = leftRow.copy();
-                    match.getValues().forEach(merged::put);
-                    result.add(merged);
+                    Row merged = leftRow.copy(); match.getValues().forEach(merged::put); result.add(merged);
                 }
-            } else if ("LEFT".equals(joinType)) {
-                result.add(leftRow);
-            }
+            } else if ("LEFT".equals(joinType)) result.add(leftRow);
         }
         return result;
     }
 
-    private List<String> extractParams(String sql) {
-        List<String> p = new ArrayList<>();
-        Matcher m = HOLDER.matcher(sql);
-        while (m.find()) p.add(m.group(1));
-        return p;
-    }
+    private List<String> extractParams(String sql) { List<String> p = new ArrayList<>(); Matcher m = HOLDER.matcher(sql); while (m.find()) p.add(m.group(1)); return p; }
 }

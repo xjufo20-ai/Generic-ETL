@@ -44,7 +44,8 @@
     {
       "type": "join",
       "query": "SELECT id AS cust_id, name AS customer_name, tier FROM customers WHERE id = :customer_id",
-      "on": "orders.customer_id = customers.id",
+      "leftKey": "customer_id",
+      "rightKey": "1",
       "joinType": "INNER"
     },
     {
