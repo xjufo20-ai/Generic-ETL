@@ -14,12 +14,4 @@ public class PersistConfig {
         private String table;
         private ConnectionConfig connection;
     }
-
-    @Data
-    public static class ConnectionConfig {
-        private String url;
-        private String username;
-        private String password;
-        private String driverClass;
-    }
 }

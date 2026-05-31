@@ -1,6 +1,5 @@
 package com.generic.etl.common.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import lombok.Data;
@@ -32,14 +31,6 @@ public abstract class DataSourceConfig {
         private String delimiter = ",";
         private boolean hasHeader = true;
         private CursorConfig cursor;
-    }
-
-    @Data
-    public static class ConnectionConfig {
-        private String url;
-        private String username;
-        private String password;
-        private String driverClass;
     }
 
     @Data

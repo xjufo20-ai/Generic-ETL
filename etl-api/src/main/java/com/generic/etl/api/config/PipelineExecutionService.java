@@ -5,6 +5,7 @@ import com.generic.etl.common.model.PipelineRun;
 import com.generic.etl.common.model.Row;
 import com.generic.etl.core.config.PipelineConfigParser;
 import com.generic.etl.core.transform.TransformChain;
+import com.generic.etl.api.metrics.EtlMetrics;
 import com.generic.etl.extract.adapter.ExtractorRegistry;
 import com.generic.etl.load.LoadRouter;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +27,7 @@ public class PipelineExecutionService {
     private final TransformChain transformChain;
     private final ExtractorRegistry extractorRegistry;
     private final LoadRouter loadRouter;
+    private final EtlMetrics metrics;
     private final Map<Long, PipelineRun> runHistory = new ConcurrentHashMap<>();
     private final AtomicLong runIdSeq = new AtomicLong(1);
 
@@ -34,11 +36,12 @@ public class PipelineExecutionService {
     public PipelineExecutionService(PipelineConfigParser configParser,
                                      TransformChain transformChain,
                                      ExtractorRegistry extractorRegistry,
-                                     LoadRouter loadRouter) {
+                                     LoadRouter loadRouter, EtlMetrics metrics) {
         this.configParser = configParser;
         this.transformChain = transformChain;
         this.extractorRegistry = extractorRegistry;
         this.loadRouter = loadRouter;
+        this.metrics = metrics;
     }
 
     public void setMaxRetries(int maxRetries) {
@@ -90,6 +93,16 @@ public class PipelineExecutionService {
             return failed;
         }
 
+        List<String> validationIssues = config.validate();
+        if (!validationIssues.isEmpty()) {
+            PipelineRun failed = PipelineRun.builder()
+                    .id(runId).pipelineName(config.getPipeline().getName()).status("FAILED")
+                    .errorMessage("Validation failed: " + String.join("; ", validationIssues))
+                    .startTime(LocalDateTime.now()).endTime(LocalDateTime.now()).build();
+            runHistory.put(runId, failed);
+            return failed;
+        }
+
         PipelineRun run = PipelineRun.builder()
                 .id(runId).pipelineName(config.getPipeline().getName())
                 .status("RUNNING").startTime(LocalDateTime.now()).build();
@@ -107,8 +120,10 @@ public class PipelineExecutionService {
             run.setRowCount(rows.size());
             run.setDurationMs(dur);
             run.setEndTime(LocalDateTime.now());
+            metrics.recordSuccess(config.getPipeline().getName(), rows.size(), dur);
             log.info("Pipeline '{}': {} rows in {}ms", config.getPipeline().getName(), rows.size(), dur);
         } catch (Exception e) {
+            metrics.recordFailure(config.getPipeline().getName());
             log.error("Pipeline '{}' failed (attempt {}/{}): {}", config.getPipeline().getName(), attempt + 1, maxRetries + 1, e.getMessage());
 
             if (attempt < maxRetries) {

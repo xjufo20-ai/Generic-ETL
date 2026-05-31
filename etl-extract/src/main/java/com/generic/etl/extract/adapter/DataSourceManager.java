@@ -1,6 +1,6 @@
 package com.generic.etl.extract.adapter;
 
-import com.generic.etl.common.model.DataSourceConfig;
+import com.generic.etl.common.model.ConnectionConfig;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import lombok.extern.slf4j.Slf4j;
@@ -13,12 +13,12 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DataSourceManager {
     private final Map<String, HikariDataSource> pools = new ConcurrentHashMap<>();
 
-    public DataSource getOrCreate(DataSourceConfig.ConnectionConfig config) {
+    public DataSource getOrCreate(ConnectionConfig config) {
         String key = config.getUrl() + "|" + config.getUsername();
         return pools.computeIfAbsent(key, k -> createPool(config));
     }
 
-    private HikariDataSource createPool(DataSourceConfig.ConnectionConfig config) {
+    private HikariDataSource createPool(ConnectionConfig config) {
         HikariConfig hc = new HikariConfig();
         hc.setJdbcUrl(config.getUrl());
         hc.setUsername(config.getUsername());
@@ -28,15 +28,10 @@ public class DataSourceManager {
         hc.setConnectionTimeout(10000);
         hc.setIdleTimeout(300000);
         hc.setMaxLifetime(600000);
-        if (config.getDriverClass() != null) {
-            hc.setDriverClassName(config.getDriverClass());
-        }
-        log.info("Created pool for {}:{}", config.getUrl());
+        if (config.getDriverClass() != null) hc.setDriverClassName(config.getDriverClass());
+        log.info("Created pool for {}", config.getUrl());
         return new HikariDataSource(hc);
     }
 
-    public void shutdown() {
-        pools.values().forEach(HikariDataSource::close);
-        pools.clear();
-    }
+    public void shutdown() { pools.values().forEach(HikariDataSource::close); pools.clear(); }
 }

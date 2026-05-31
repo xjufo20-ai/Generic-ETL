@@ -4,7 +4,6 @@ import com.generic.etl.api.config.PipelineExecutionService;
 import com.generic.etl.api.config.PipelineScheduler;
 import com.generic.etl.api.security.Roles;
 import com.generic.etl.common.dto.ApiResponse;
-import com.generic.etl.common.dto.PipelineRunResponse;
 import com.generic.etl.common.model.PipelineRun;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -27,35 +26,25 @@ public class PipelineController {
         this.pipelineStore = pipelineStore;
     }
 
-    // ── Execution (ADMIN, OPERATOR) ────────────────────────
-
     @PostMapping("/execute")
     @PreAuthorize(Roles.IS_ADMIN_OR_OPERATOR)
-    public ApiResponse<PipelineRunResponse> execute(@RequestBody String pipelineJson) {
-        PipelineRun run = executionService.executeFromJson(pipelineJson);
-        return ApiResponse.ok(toResponse(run));
+    public ApiResponse<PipelineRun> execute(@RequestBody String pipelineJson) {
+        return ApiResponse.ok(executionService.executeFromJson(pipelineJson));
     }
 
     @PostMapping("/{name}/execute")
     @PreAuthorize(Roles.IS_ADMIN_OR_OPERATOR)
-    public ApiResponse<PipelineRunResponse> executeByName(@PathVariable String name) {
-        PipelineRun run = executionService.executeByName(name, pipelineStore);
-        return ApiResponse.ok(toResponse(run));
+    public ApiResponse<PipelineRun> executeByName(@PathVariable String name) {
+        return ApiResponse.ok(executionService.executeByName(name, pipelineStore));
     }
 
     @PostMapping("/{name}/retry")
     @PreAuthorize(Roles.IS_ADMIN_OR_OPERATOR)
-    public ApiResponse<PipelineRunResponse> retry(@PathVariable String name,
-                                                   @RequestParam Long runId) {
+    public ApiResponse<PipelineRun> retry(@PathVariable String name, @RequestParam Long runId) {
         String json = pipelineStore.get(name);
-        if (json == null) {
-            return ApiResponse.error("Pipeline not found: " + name);
-        }
-        PipelineRun run = executionService.retryRun(runId, json);
-        return ApiResponse.ok(toResponse(run));
+        if (json == null) return ApiResponse.error("Pipeline not found: " + name);
+        return ApiResponse.ok(executionService.retryRun(runId, json));
     }
-
-    // ── Pipeline config management (ADMIN only) ────────────
 
     @PostMapping("/register")
     @PreAuthorize(Roles.IS_ADMIN)
@@ -71,8 +60,6 @@ public class PipelineController {
         return ApiResponse.ok("Pipeline '" + name + "' unregistered");
     }
 
-    // ── Read queries (all roles) ───────────────────────────
-
     @GetMapping
     @PreAuthorize(Roles.IS_AUTHENTICATED)
     public ApiResponse<List<String>> listPipelines() {
@@ -83,48 +70,21 @@ public class PipelineController {
     @PreAuthorize(Roles.IS_AUTHENTICATED)
     public ApiResponse<String> getPipeline(@PathVariable String name) {
         String json = pipelineStore.get(name);
-        if (json == null) {
-            return ApiResponse.error("Pipeline not found: " + name);
-        }
+        if (json == null) return ApiResponse.error("Pipeline not found: " + name);
         return ApiResponse.ok(json);
     }
 
     @GetMapping("/runs")
     @PreAuthorize(Roles.IS_AUTHENTICATED)
-    public ApiResponse<List<PipelineRunResponse>> getRuns(
-            @RequestParam(required = false) String pipeline) {
-        List<PipelineRun> runs;
-        if (pipeline != null) {
-            runs = executionService.getRunHistory(pipeline);
-        } else {
-            runs = executionService.getRunHistory();
-        }
-        List<PipelineRunResponse> response = runs.stream()
-                .map(PipelineController::toResponse)
-                .toList();
-        return ApiResponse.ok(response);
+    public ApiResponse<List<PipelineRun>> getRuns(@RequestParam(required = false) String pipeline) {
+        return ApiResponse.ok(pipeline != null ? executionService.getRunHistory(pipeline) : executionService.getRunHistory());
     }
 
     @GetMapping("/runs/{runId}")
     @PreAuthorize(Roles.IS_AUTHENTICATED)
-    public ApiResponse<PipelineRunResponse> getRun(@PathVariable Long runId) {
+    public ApiResponse<PipelineRun> getRun(@PathVariable Long runId) {
         PipelineRun run = executionService.getRun(runId);
-        if (run == null) {
-            return ApiResponse.error("Run not found: " + runId);
-        }
-        return ApiResponse.ok(toResponse(run));
-    }
-
-    private static PipelineRunResponse toResponse(PipelineRun run) {
-        return PipelineRunResponse.builder()
-                .id(run.getId())
-                .pipelineName(run.getPipelineName())
-                .status(run.getStatus())
-                .rowCount(run.getRowCount())
-                .durationMs(run.getDurationMs())
-                .errorMessage(run.getErrorMessage())
-                .startTime(run.getStartTime())
-                .endTime(run.getEndTime())
-                .build();
+        if (run == null) return ApiResponse.error("Run not found: " + runId);
+        return ApiResponse.ok(run);
     }
 }

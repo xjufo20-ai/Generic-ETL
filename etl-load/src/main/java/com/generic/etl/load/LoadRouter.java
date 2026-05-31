@@ -8,19 +8,19 @@ import com.generic.etl.load.persist.PersistHandler;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
-import java.util.Map;
+
 
 @Slf4j
 public class LoadRouter {
 
     private final PersistHandler persistHandler;
     private final ConsumerDispatchService dispatchService;
-    private final Map<String, List<ConsumerRegistration>> consumerRegistry;
+    private final ConsumerRegistry consumerRegistry;
     private final InMemoryDataStore inMemoryStore;
 
     public LoadRouter(PersistHandler persistHandler,
                       ConsumerDispatchService dispatchService,
-                      Map<String, List<ConsumerRegistration>> consumerRegistry,
+                      ConsumerRegistry consumerRegistry,
                       InMemoryDataStore inMemoryStore) {
         this.persistHandler = persistHandler;
         this.dispatchService = dispatchService;
@@ -37,7 +37,7 @@ public class LoadRouter {
         int persisted = persistHandler.persistIfNeeded(rows, persistConfig);
         log.info("Pipeline '{}': {} rows persisted of {} total", pipelineName, persisted, rows.size());
 
-        List<ConsumerRegistration> registrations = consumerRegistry.getOrDefault(pipelineName, List.of());
+        List<ConsumerRegistration> registrations = consumerRegistry.getByPipeline(pipelineName);
         if (!registrations.isEmpty()) {
             dispatchService.dispatch(pipelineName, rows, registrations);
         }

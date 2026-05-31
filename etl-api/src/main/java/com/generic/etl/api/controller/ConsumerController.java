@@ -5,23 +5,26 @@ import com.generic.etl.common.dto.ApiResponse;
 import com.generic.etl.common.dto.DataResponse;
 import com.generic.etl.common.model.ConsumerRegistration;
 import com.generic.etl.common.model.Row;
+import com.generic.etl.load.ConsumerRegistry;
 import com.generic.etl.load.InMemoryDataStore;
 import com.generic.etl.load.dispatch.ConsumerDispatchService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+
 @RestController
 @RequestMapping("/api/consumers")
 public class ConsumerController {
-    private final Map<String, List<ConsumerRegistration>> consumerRegistry;
+    private final ConsumerRegistry consumerRegistry;
     private final ConsumerDispatchService dispatchService;
     private final InMemoryDataStore inMemoryStore;
 
-    public ConsumerController(Map<String, List<ConsumerRegistration>> consumerRegistry,
+    public ConsumerController(ConsumerRegistry consumerRegistry,
                                ConsumerDispatchService dispatchService,
                                InMemoryDataStore inMemoryStore) {
         this.consumerRegistry = consumerRegistry;
@@ -33,7 +36,7 @@ public class ConsumerController {
     @PreAuthorize(Roles.IS_ADMIN)
     public ApiResponse<String> register(@RequestBody ConsumerRegistration registration) {
         String consumerName = registration.getConsumer().getName();
-        consumerRegistry.computeIfAbsent(consumerName, k -> new ArrayList<>()).add(registration);
+        consumerRegistry.register(registration);
         return ApiResponse.ok("Consumer '" + consumerName + "' registered with " +
                 registration.getSubscriptions().size() + " subscription(s)");
     }
@@ -41,13 +44,13 @@ public class ConsumerController {
     @GetMapping
     @PreAuthorize(Roles.IS_AUTHENTICATED)
     public ApiResponse<List<String>> listConsumers() {
-        return ApiResponse.ok(new ArrayList<>(consumerRegistry.keySet()));
+        return ApiResponse.ok(consumerRegistry.consumerNames());
     }
 
     @DeleteMapping("/{name}")
     @PreAuthorize(Roles.IS_ADMIN)
     public ApiResponse<String> unregister(@PathVariable String name) {
-        consumerRegistry.remove(name);
+        consumerRegistry.unregister(name);
         return ApiResponse.ok("Consumer '" + name + "' unregistered");
     }
 
@@ -90,7 +93,7 @@ public class ConsumerController {
     }
 
     private List<ConsumerRegistration.Subscription> findSubscriptions(String consumerName, String pipeline) {
-        List<ConsumerRegistration> regs = consumerRegistry.getOrDefault(consumerName, List.of());
+        List<ConsumerRegistration> regs = consumerRegistry.getSubscriptions(consumerName);
         List<ConsumerRegistration.Subscription> result = new ArrayList<>();
         for (ConsumerRegistration reg : regs) {
             for (ConsumerRegistration.Subscription sub : reg.getSubscriptions()) {
