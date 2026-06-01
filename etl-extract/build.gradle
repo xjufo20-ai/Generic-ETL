@@ -1,8 +1,8 @@
 dependencies {
     implementation project(':etl-common')
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
     implementation 'com.zaxxer:HikariCP:5.1.0'
-    implementation 'com.fasterxml.jackson.core:jackson-annotations'
     runtimeOnly 'com.oracle.database.jdbc:ojdbc11:23.5.0.24.07'
     runtimeOnly 'com.mysql:mysql-connector-j:9.0.0'
     runtimeOnly 'org.postgresql:postgresql:42.7.4'

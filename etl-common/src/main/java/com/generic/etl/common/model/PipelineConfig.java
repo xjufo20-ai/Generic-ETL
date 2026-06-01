@@ -12,6 +12,8 @@ public class PipelineConfig {
     private DataSourceConfig datasource;
     private SchemaConfig inputSchema;
     private List<TransformDef> transforms;
+    private WatermarkConfig watermark;
+    private ParallelConfig parallel;
     private PersistConfig output;
 
     @Data
@@ -19,6 +21,7 @@ public class PipelineConfig {
         private String name;
         private String version;
         private String cron;
+        private List<String> dependsOn;
     }
 
     /** Validate the configuration and return a list of issues (empty = valid). */
