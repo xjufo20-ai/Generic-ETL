@@ -5,9 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.generic.etl.api.metrics.EtlMetrics;
-import com.generic.etl.core.transform.TransformPipeline;
+import com.generic.etl.api.store.LineageStore;
 import com.generic.etl.api.store.StateStore;
 import com.generic.etl.core.config.PipelineConfigParser;
+import com.generic.etl.core.transform.TransformPipeline;
 import com.generic.etl.extract.adapter.ExtractorRegistry;
 import com.generic.etl.load.LoadRouter;
 import org.springframework.context.annotation.Bean;
@@ -30,11 +31,8 @@ public class EtlConfig {
     }
 
     @Bean public PipelineConfigParser pipelineConfigParser(ObjectMapper mapper) { return new PipelineConfigParser(mapper); }
-
-    @Bean
-    public StateStore stateStore(ObjectMapper mapper) {
-        return new StateStore(Path.of("data"), mapper);
-    }
+    @Bean public LineageStore lineageStore(ObjectMapper mapper) { return new LineageStore(Path.of("data"), mapper); }
+    @Bean public StateStore stateStore(ObjectMapper mapper) { return new StateStore(Path.of("data"), mapper); }
 
     @Bean
     public TaskScheduler taskScheduler() {
@@ -45,8 +43,8 @@ public class EtlConfig {
     @Bean
     public PipelineExecutionService pipelineExecutionService(PipelineConfigParser configParser, TransformPipeline transformPipeline,
                                                                ExtractorRegistry extractorRegistry, LoadRouter loadRouter,
-                                                               EtlMetrics metrics) {
-        return new PipelineExecutionService(configParser, transformPipeline, extractorRegistry, loadRouter, metrics);
+                                                               EtlMetrics metrics, LineageStore lineageStore) {
+        return new PipelineExecutionService(configParser, transformPipeline, extractorRegistry, loadRouter, metrics, lineageStore);
     }
 
     @Bean

@@ -38,7 +38,7 @@ public class SecurityConfig {
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 // Swagger & Actuator — no auth needed
-                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/actuator/health").permitAll()
+                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/actuator/health", "/dashboard/**", "/", "/css/**").permitAll()
                 // Everything else requires authentication
                 .anyRequest().authenticated()
             )

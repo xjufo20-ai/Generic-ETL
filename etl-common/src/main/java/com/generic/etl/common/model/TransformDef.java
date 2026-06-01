@@ -12,7 +12,8 @@ import java.util.List;
     @JsonSubTypes.Type(value = TransformDef.RenameDef.class, name = "rename"),
     @JsonSubTypes.Type(value = TransformDef.TypeCastDef.class, name = "typeCast"),
     @JsonSubTypes.Type(value = TransformDef.AggregateDef.class, name = "aggregate"),
-    @JsonSubTypes.Type(value = TransformDef.JoinDef.class, name = "join")
+    @JsonSubTypes.Type(value = TransformDef.JoinDef.class, name = "join"),
+    @JsonSubTypes.Type(value = TransformDef.SplitDef.class, name = "split")
 })
 @Data
 public abstract class TransformDef {
@@ -51,9 +52,16 @@ public abstract class TransformDef {
     public static class JoinDef extends TransformDef {
         public JoinDef() { this.type = "join"; }
         private String query;
-        private String leftKey;   // column name in left (input) rows
-        private String rightKey;  // column index (1-based) or name in join result set
-        private String joinType;  // INNER, LEFT
+        private String leftKey;
+        private String rightKey;
+        private String joinType;
+    }
+
+    @Data
+    public static class SplitDef extends TransformDef {
+        public SplitDef() { this.type = "split"; }
+        private String field;
+        private String delimiter;
     }
 
     @Data
@@ -71,7 +79,7 @@ public abstract class TransformDef {
     @Data
     public static class Aggregation {
         private String field;
-        private String function; // SUM, AVG, COUNT, MIN, MAX
+        private String function;
         private String alias;
     }
 }

@@ -13,6 +13,7 @@ public class PipelineConfig {
     private SchemaConfig inputSchema;
     private List<TransformDef> transforms;
     private WatermarkConfig watermark;
+    private String tenant;
     private ParallelConfig parallel;
     private PersistConfig output;
 

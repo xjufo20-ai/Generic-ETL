@@ -1,5 +1,4 @@
 plugins { id 'org.springframework.boot' }
-
 ext { springCloudVersion = '2023.0.3' }
 
 dependencies {
@@ -9,6 +8,7 @@ dependencies {
     implementation project(':etl-transform')
     implementation project(':etl-load')
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Generic-ETL Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fa; color: #333; }
+        .header { background: #1a1a2e; color: #fff; padding: 20px 32px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 22px; }
+        .stats { display: flex; gap: 24px; }
+        .stat { text-align: center; }
+        .stat .num { font-size: 28px; font-weight: bold; color: #e94560; }
+        .stat .label { font-size: 12px; color: #aaa; }
+        .container { max-width: 1200px; margin: 24px auto; padding: 0 24px; }
+        .section { background: #fff; border-radius: 8px; padding: 20px 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .section h2 { font-size: 16px; margin-bottom: 16px; color: #1a1a2e; border-bottom: 2px solid #e94560; padding-bottom: 8px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px; }
+        th { background: #f8f9fc; font-weight: 600; color: #555; }
+        .badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-failed { background: #f8d7da; color: #721c24; }
+        .badge-running { background: #fff3cd; color: #856404; }
+        .pipeline-list { display: flex; flex-wrap: wrap; gap: 8px; }
+        .pipeline-tag { background: #e8edf5; padding: 4px 12px; border-radius: 12px; font-size: 13px; color: #1a1a2e; }
+        .empty { color: #999; font-style: italic; padding: 24px 0; text-align: center; }
+        .refresh { font-size: 12px; color: #aaa; margin-top: 12px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔧 Generic-ETL</h1>
+        <div class="stats">
+            <div class="stat"><div class="num" th:text="${pipelineCount}">0</div><div class="label">Pipelines</div></div>
+            <div class="stat"><div class="num" th:text="${runCount}">0</div><div class="label">Total Runs</div></div>
+        </div>
+    </div>
+    <div class="container">
+        <!-- Pipelines -->
+        <div class="section">
+            <h2>📋 Registered Pipelines</h2>
+            <div class="pipeline-list">
+                <th:block th:if="${pipelines != null && !pipelines.empty}">
+                    <span class="pipeline-tag" th:each="p : ${pipelines}" th:text="${p}">pipeline</span>
+                </th:block>
+                <div th:if="${pipelines == null || pipelines.empty}" class="empty">No pipelines registered yet. Use POST /api/pipelines/register</div>
+            </div>
+        </div>
+
+        <!-- Recent Runs -->
+        <div class="section">
+            <h2>🕐 Recent Runs</h2>
+            <table th:if="${recentRuns != null && !recentRuns.empty}">
+                <thead><tr><th>ID</th><th>Pipeline</th><th>Status</th><th>Rows</th><th>Duration</th><th>Time</th></tr></thead>
+                <tbody>
+                    <tr th:each="r : ${recentRuns}">
+                        <td th:text="${r.id}">1</td>
+                        <td th:text="${r.pipelineName}">etl</td>
+                        <td><span th:class="'badge badge-' + (${r.status} == 'SUCCESS' ? 'success' : (${r.status} == 'FAILED' ? 'failed' : 'running'))" th:text="${r.status}">OK</span></td>
+                        <td th:text="${r.rowCount}">0</td>
+                        <td th:text="${r.durationMs + 'ms'}">0ms</td>
+                        <td th:text="${r.startTime}">-</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div th:if="${recentRuns == null || recentRuns.empty}" class="empty">No runs yet</div>
+        </div>
+
+        <!-- Lineage -->
+        <div class="section">
+            <h2>🔗 Data Lineage</h2>
+            <table th:if="${lineage != null && !lineage.empty}">
+                <thead><tr><th>Pipeline</th><th>Output Table</th><th>Consumer</th><th>Rows</th><th>Status</th><th>Time</th></tr></thead>
+                <tbody>
+                    <tr th:each="l : ${lineage}">
+                        <td th:text="${l.pipeline}">-</td>
+                        <td th:text="${l.outputTable}">-</td>
+                        <td th:text="${l.consumer}">-</td>
+                        <td th:text="${l.rows}">0</td>
+                        <td th:text="${l.status}">-</td>
+                        <td th:text="${l.timestamp}">-</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div th:if="${lineage == null || lineage.empty}" class="empty">No lineage data yet</div>
+        </div>
+        <div class="refresh">Auto-refresh: reload page to update</div>
+    </div>
+</body>
+</html>

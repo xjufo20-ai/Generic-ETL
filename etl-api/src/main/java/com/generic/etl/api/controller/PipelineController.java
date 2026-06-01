@@ -3,6 +3,7 @@ package com.generic.etl.api.controller;
 import com.generic.etl.api.config.PipelineExecutionService;
 import com.generic.etl.api.config.PipelineScheduler;
 import com.generic.etl.api.security.Roles;
+import com.generic.etl.api.store.LineageStore;
 import com.generic.etl.api.store.StateStore;
 import com.generic.etl.common.dto.ApiResponse;
 import com.generic.etl.common.model.PipelineRun;
@@ -10,6 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/pipelines")
@@ -17,12 +19,14 @@ public class PipelineController {
     private final PipelineExecutionService executionService;
     private final PipelineScheduler scheduler;
     private final StateStore store;
+    private final LineageStore lineageStore;
 
     public PipelineController(PipelineExecutionService executionService,
-                               PipelineScheduler scheduler, StateStore store) {
+                               PipelineScheduler scheduler, StateStore store, LineageStore lineageStore) {
         this.executionService = executionService;
         this.scheduler = scheduler;
         this.store = store;
+        this.lineageStore = lineageStore;
     }
 
     @PostMapping("/execute")
@@ -77,6 +81,13 @@ public class PipelineController {
     @PreAuthorize(Roles.IS_AUTHENTICATED)
     public ApiResponse<List<PipelineRun>> getRuns(@RequestParam(required = false) String pipeline) {
         return ApiResponse.ok(pipeline != null ? executionService.getRunHistory(pipeline) : executionService.getRunHistory());
+    }
+
+    @GetMapping("/lineage")
+    @PreAuthorize(Roles.IS_AUTHENTICATED)
+    public ApiResponse<List<Map<String,Object>>> getLineage(@RequestParam(required=false) String pipeline) {
+        List<LineageStore.LineageEntry> entries = pipeline != null ? lineageStore.getByPipeline(pipeline) : lineageStore.getAll();
+        return ApiResponse.ok(entries.stream().map(e -> Map.<String,Object>of("pipeline",e.pipeline(),"outputTable",e.outputTable(),"consumer",e.consumer(),"rows",e.rows(),"status",e.status(),"timestamp",e.timestamp())).toList());
     }
 
     @GetMapping("/runs/{runId}")

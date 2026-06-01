@@ -19,6 +19,7 @@ public class TransformConfig {
     @Bean public TypeCastProcessor typeCastProcessor() { return new TypeCastProcessor(); }
     @Bean public AggregateProcessor aggregateProcessor() { return new AggregateProcessor(); }
     @Bean public JoinProcessor joinProcessor(DataSource dataSource) { return new JoinProcessor(dataSource); }
+    @Bean public SplitProcessor splitProcessor() { return new SplitProcessor(); }
 
     @Bean
     public TransformPipeline transformPipeline(List<TransformProcessor> processors) {
@@ -28,6 +29,7 @@ public class TransformConfig {
         map.put("typeCast", find(processors, TypeCastProcessor.class));
         map.put("aggregate", find(processors, AggregateProcessor.class));
         map.put("join", find(processors, JoinProcessor.class));
+        map.put("split", find(processors, SplitProcessor.class));
         return new TransformPipeline(map);
     }
 
