@@ -10,6 +10,8 @@ allprojects {
     repositories { mavenCentral() }
 }
 
+ext { camelVersion = '4.7.0' }
+
 subprojects {
     apply plugin: 'java'
     apply plugin: 'io.spring.dependency-management'

@@ -11,7 +11,9 @@ import lombok.EqualsAndHashCode;
     @JsonSubTypes.Type(value = DataSourceConfig.JdbcDataSource.class, name = "oracle"),
     @JsonSubTypes.Type(value = DataSourceConfig.JdbcDataSource.class, name = "mysql"),
     @JsonSubTypes.Type(value = DataSourceConfig.JdbcDataSource.class, name = "postgresql"),
-    @JsonSubTypes.Type(value = DataSourceConfig.CsvDataSource.class, name = "csv")
+    @JsonSubTypes.Type(value = DataSourceConfig.CsvDataSource.class, name = "csv"),
+    @JsonSubTypes.Type(value = DataSourceConfig.KafkaDataSource.class, name = "kafka"),
+    @JsonSubTypes.Type(value = DataSourceConfig.SftpDataSource.class, name = "sftp")
 })
 public abstract class DataSourceConfig {
     protected String type;
@@ -31,6 +33,35 @@ public abstract class DataSourceConfig {
         private String delimiter = ",";
         private boolean hasHeader = true;
         private CursorConfig cursor;
+    }
+
+    @Data
+    @EqualsAndHashCode(callSuper = true)
+    public static class KafkaDataSource extends DataSourceConfig {
+        private KafkaConnection connection;
+    }
+
+    @Data
+    @EqualsAndHashCode(callSuper = true)
+    public static class SftpDataSource extends DataSourceConfig {
+        private SftpConnection connection;
+        private String fileName = "*.csv";
+    }
+
+    @Data
+    public static class KafkaConnection {
+        private String bootstrapServers;
+        private String topic;
+        private String groupId = "etl-group";
+    }
+
+    @Data
+    public static class SftpConnection {
+        private String host;
+        private int port = 22;
+        private String username;
+        private String password;
+        private String directory = "/";
     }
 
     @Data

@@ -97,6 +97,35 @@ open http://localhost:8080/swagger-ui.html
 
 `{{env:VAR}}` 运行时从环境变量注入，密码不存明文。
 
+**Kafka** — 通过 Apache Camel Kafka 组件消费消息：
+
+```jsonc
+{
+  "type": "kafka",
+  "connection": {
+    "bootstrapServers": "localhost:9092",
+    "topic": "input-topic",
+    "groupId": "etl-group"
+  }
+}
+```
+
+**SFTP** — 通过 Apache Camel FTP 组件拉取远程文件：
+
+```jsonc
+{
+  "type": "sftp",
+  "connection": {
+    "host": "sftp.example.com",
+    "port": 22,
+    "username": "{{env:SFTP_USER}}",
+    "password": "{{env:SFTP_PASS}}",
+    "directory": "/incoming"
+  },
+  "fileName": "*.csv"
+}
+```
+
 **CSV** — 纯 Java NIO，流式读取：
 
 ```jsonc
@@ -139,6 +168,46 @@ open http://localhost:8080/swagger-ui.html
   }
 }
 ```
+
+## 数据血缘
+
+每次 Pipeline 执行成功后自动记录血缘关系：
+
+```
+Pipeline → Output Table → Consumer → Rows → Timestamp
+```
+
+查询接口：
+
+```bash
+GET /api/pipelines/lineage                    # 全部血缘
+GET /api/pipelines/lineage?pipeline=my-etl    # 按 Pipeline 过滤
+```
+
+血缘数据持久化在 `data/lineage.json`，重启不丢失。
+
+## 数据清洗 & 验证
+
+**执行前校验** — `PipelineConfig.validate()` 在解析 JSON 后、执行前自动运行：
+
+| 校验项 | 说明 |
+|--------|------|
+| 必填字段 | pipeline.name, datasource, inputSchema.fields |
+| 游标列存在性 | cursor.column 必须在 inputSchema 中声明 |
+| Transform 字段引用 | rename/typeCast/aggregate 引用的字段必须在 schema 中 |
+
+**执行中清洗** — Transform 链提供 6 种数据清洗能力：
+
+| Transform | 清洗场景 |
+|-----------|---------|
+| `filter` | 剔除无效行（salary > 0, status == 'active'） |
+| `typeCast` | 类型规范化（STRING→DECIMAL, 日期格式统一） |
+| `rename` | 字段名标准化（source_name → target_name） |
+| `split` | 拆分行（逗号分隔的 tags → 每行一个 tag） |
+| `aggregate` | 去重聚合（按维度 SUM/COUNT） |
+| `join` | 维度补全（事实表 JOIN 维度表） |
+
+**错误行隔离** — DeadLetterQueue 机制：单行 Transform 失败不会阻塞全量，失败行记录日志，成功行继续流转。
 
 ## 下游消费
 

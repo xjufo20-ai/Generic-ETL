@@ -3,6 +3,10 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     implementation 'com.zaxxer:HikariCP:5.1.0'
+    // Camel connectors (optional — used for Kafka, SFTP, S3 sources)
+    implementation "org.apache.camel:camel-kafka:${camelVersion}"
+    implementation "org.apache.camel:camel-ftp:${camelVersion}"
+    implementation "org.apache.camel:camel-core:${camelVersion}"
     runtimeOnly 'com.oracle.database.jdbc:ojdbc11:23.5.0.24.07'
     runtimeOnly 'com.mysql:mysql-connector-j:9.0.0'
     runtimeOnly 'org.postgresql:postgresql:42.7.4'
