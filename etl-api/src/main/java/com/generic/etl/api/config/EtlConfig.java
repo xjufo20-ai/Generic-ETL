@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.generic.etl.api.metrics.EtlMetrics;
+import com.generic.etl.api.store.AuditLog;
 import com.generic.etl.api.store.LineageStore;
 import com.generic.etl.api.store.StateStore;
 import com.generic.etl.core.config.PipelineConfigParser;
@@ -31,8 +32,11 @@ public class EtlConfig {
     }
 
     @Bean public PipelineConfigParser pipelineConfigParser(ObjectMapper mapper) { return new PipelineConfigParser(mapper); }
-    @Bean public LineageStore lineageStore(ObjectMapper mapper) { return new LineageStore(Path.of("data"), mapper); }
-    @Bean public StateStore stateStore(ObjectMapper mapper) { return new StateStore(Path.of("data"), mapper); }
+    @Bean public AuditLog auditLog(ObjectMapper mapper) { return new AuditLog(Path.of("data"), mapper); }
+
+    @Bean
+    public LineageStore lineageStore(ObjectMapper mapper) { return new LineageStore(Path.of("data"), mapper); }
+    @Bean public StateStore stateStore(ObjectMapper mapper, AuditLog auditLog) { return new StateStore(Path.of("data"), mapper, auditLog); }
 
     @Bean
     public TaskScheduler taskScheduler() {
@@ -43,8 +47,8 @@ public class EtlConfig {
     @Bean
     public PipelineExecutionService pipelineExecutionService(PipelineConfigParser configParser, TransformPipeline transformPipeline,
                                                                ExtractorRegistry extractorRegistry, LoadRouter loadRouter,
-                                                               EtlMetrics metrics, LineageStore lineageStore) {
-        return new PipelineExecutionService(configParser, transformPipeline, extractorRegistry, loadRouter, metrics, lineageStore);
+                                                               EtlMetrics metrics, AuditLog auditLog, LineageStore lineageStore) {
+        return new PipelineExecutionService(configParser, transformPipeline, extractorRegistry, loadRouter, metrics, auditLog, lineageStore);
     }
 
     @Bean

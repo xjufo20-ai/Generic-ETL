@@ -3,6 +3,7 @@ package com.generic.etl.api.controller;
 import com.generic.etl.api.config.PipelineExecutionService;
 import com.generic.etl.api.config.PipelineScheduler;
 import com.generic.etl.api.security.Roles;
+import com.generic.etl.api.store.AuditLog;
 import com.generic.etl.api.store.LineageStore;
 import com.generic.etl.api.store.StateStore;
 import com.generic.etl.common.dto.ApiResponse;
@@ -20,12 +21,14 @@ public class PipelineController {
     private final PipelineScheduler scheduler;
     private final StateStore store;
     private final LineageStore lineageStore;
+    private final AuditLog auditLog;
 
     public PipelineController(PipelineExecutionService executionService,
-                               PipelineScheduler scheduler, StateStore store, LineageStore lineageStore) {
+                               PipelineScheduler scheduler, StateStore store, AuditLog auditLog, LineageStore lineageStore) {
         this.executionService = executionService;
         this.scheduler = scheduler;
         this.store = store;
+        this.auditLog = auditLog;
         this.lineageStore = lineageStore;
     }
 
@@ -81,6 +84,12 @@ public class PipelineController {
     @PreAuthorize(Roles.IS_AUTHENTICATED)
     public ApiResponse<List<PipelineRun>> getRuns(@RequestParam(required = false) String pipeline) {
         return ApiResponse.ok(pipeline != null ? executionService.getRunHistory(pipeline) : executionService.getRunHistory());
+    }
+
+    @GetMapping("/{name}/audit")
+    @PreAuthorize(Roles.IS_AUTHENTICATED)
+    public ApiResponse<List<AuditLog.Entry>> getAudit(@PathVariable String name) {
+        return ApiResponse.ok(auditLog.getHistory(name));
     }
 
     @GetMapping("/lineage")

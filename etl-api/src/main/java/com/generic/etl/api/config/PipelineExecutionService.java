@@ -1,6 +1,7 @@
 package com.generic.etl.api.config;
 
 import com.generic.etl.api.metrics.EtlMetrics;
+import com.generic.etl.api.store.AuditLog;
 import com.generic.etl.api.store.LineageStore;
 import com.generic.etl.api.store.StateStore;
 import com.generic.etl.common.model.ParallelConfig;
@@ -33,24 +34,26 @@ public class PipelineExecutionService {
     private final ExtractorRegistry extractorRegistry;
     private final LoadRouter loadRouter;
     private final EtlMetrics metrics;
+    private final AuditLog auditLog;
     private final LineageStore lineageStore;
     private final RetryHandler retryHandler;
     private final Map<Long, PipelineRun> runHistory = new ConcurrentHashMap<>();
     private final AtomicLong runIdSeq = new AtomicLong(1);
 
     public PipelineExecutionService(PipelineConfigParser configParser, TransformPipeline transformPipeline,
-                                     ExtractorRegistry extractorRegistry, LoadRouter loadRouter, EtlMetrics metrics, LineageStore lineageStore) {
-        this(configParser, transformPipeline, extractorRegistry, loadRouter, metrics, new RetryHandler(), lineageStore);
+                                     ExtractorRegistry extractorRegistry, LoadRouter loadRouter, EtlMetrics metrics, AuditLog auditLog, LineageStore lineageStore) {
+        this(configParser, transformPipeline, extractorRegistry, loadRouter, metrics, auditLog, new RetryHandler(), lineageStore);
     }
 
     public PipelineExecutionService(PipelineConfigParser configParser, TransformPipeline transformPipeline,
                                      ExtractorRegistry extractorRegistry, LoadRouter loadRouter,
-                                     EtlMetrics metrics, RetryHandler retryHandler, LineageStore lineageStore) {
+                                     EtlMetrics metrics, AuditLog auditLog, RetryHandler retryHandler, LineageStore lineageStore) {
         this.configParser = configParser;
         this.transformPipeline = transformPipeline;
         this.extractorRegistry = extractorRegistry;
         this.loadRouter = loadRouter;
         this.metrics = metrics;
+        this.auditLog = auditLog;
         this.lineageStore = lineageStore;
         this.retryHandler = retryHandler;
     }
@@ -103,6 +106,7 @@ public class PipelineExecutionService {
                         config.getOutput() != null && config.getOutput().getStorage() != null ? config.getOutput().getStorage().getTable() : "in-memory", 
                         "default", rows.size(), "SUCCESS"); run.setDurationMs(dur); run.setEndTime(LocalDateTime.now());
                 metrics.recordSuccess(config.getPipeline().getName(), rows.size(), dur);
+                auditLog.recordExecution(config.getPipeline().getName(), "SUCCESS", rows.size(), "system");
                 log.info("Pipeline '{}': {} rows in {}ms (DLQ: {})",
                         config.getPipeline().getName(), rows.size(), dur, dlq.getFailures(config.getPipeline().getName()).size());
                 return null;
@@ -111,6 +115,7 @@ public class PipelineExecutionService {
             long dur = Duration.between(run.getStartTime(), LocalDateTime.now()).toMillis();
             run.setStatus("FAILED"); run.setDurationMs(dur); run.setEndTime(LocalDateTime.now());
             run.setErrorMessage(trunc(e.getMessage(), 2000));
+            auditLog.recordExecution(config.getPipeline().getName(), "FAILED", 0, "system");
             metrics.recordFailure(config.getPipeline().getName());
         }
         runHistory.put(runId, run);
