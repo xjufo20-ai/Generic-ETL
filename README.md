@@ -2,75 +2,64 @@
 
 [![Java](https://img.shields.io/badge/Java-22-blue)](https://adoptium.net/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.5-green)](https://spring.io/projects/spring-boot)
+[![Apache Camel](https://img.shields.io/badge/Camel-4.7.0-orange)](https://camel.apache.org/)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
-JSON 配置驱动的轻量 ETL 引擎，基于 **Spring Boot 3.3 + JdbcTemplate + HikariCP**，支持全量/增量抽取、6 种 Transform、混合落盘、下游注册式消费、RBAC 安全、Dashboard 控制台。
+JSON 配置驱动的 ETL 引擎，基于 **Spring Boot 3.3 + Apache Camel 4.7**。一条 JSON → 一条 Camel Route，原生 EIP 模式（Filter、Aggregate、Split、Multicast）。
 
 ---
 
 ## 架构
 
 ```
- config/samples/*.json          Dashboard (/dashboard)        ConsumerController
-        │                              │                            │
-        ▼                              ▼                            ▼
- PipelineConfigParser ──► CamelRouteFactory ───────────► ConsumerDispatchService
-        │                       │                               │
-        ▼                       ▼                               ▼
-   PipelineConfig        Camel Route DSL                LoadRouter
-      │                 ┌──────────────────┐                 │
-      │                 │ from(source)     │                 ├─ Persist
-      ├─ Watermark      │   .process(trx)  │                 │  (JDBC batch)
-      ├─ Parallel       │   .filter(...)   │                 ├─ PUSH (HTTP)
-      ├─ dependsOn      │   .aggregate(...)│                 └─ PULL (REST)
-      └─ tenant         │   .multicast()   │
-                        │     .to(persist) │
-                        │     .to(dispatch)│
-                        └──────────────────┘
-                        Camel EIP 模式
-                  (Filter, Aggregate, Split, Multicast)
+ config/samples/*.json
+        │
+        ▼
+ PipelineConfigParser ──► CamelRouteFactory
+        │                      │
+        ▼                      ▼
+  PipelineConfig          Camel Route (EIP native)
+                          ┌────────────────────────┐
+                          │ from(jdbc:/kafka:/...)  │
+                          │   .filter(expr)         │  ← Filter EIP
+                          │   .process(rename)      │  ← Rename
+                          │   .aggregate(strategy)  │  ← Aggregate EIP
+                          │   .enrich(jdbc:...)     │  ← Join EIP
+                          │   .split(body())        │  ← Split EIP
+                          │   .multicast()          │  ← Multicast EIP
+                          │     .to(persist)        │
+                          │     .to(dispatch)       │
+                          │   .end()                 │
+                          └────────────────────────┘
+                                   │
+                    ┌──────────────┼──────────────┐
+                    ▼              ▼              ▼
+              PersistHandler  ConsumerDispatch  Hawtio Console
+                 (JDBC)      (PUSH/PULL REST)   (/hawtio)
 ```
 
-> **双路径兼容**: 现有 Java Stream 执行路径保留（`PipelineExecutionService`），新增 Camel Route 路径（`CamelRouteFactory`）。两者共享同一套 TransformProcessor 和 LoadRouter。
+**关键设计**: Pipeline JSON 直接映射为 Camel Route，利用 Camel 原生 EIP 替代自写 TransformChain。
+Camel 提供声明式错误处理 (`onException`)、自动重试、JMX 监控。
 
 ## 模块
 
 | 模块 | 职责 |
 |------|------|
 | `etl-common` | 数据模型：PipelineConfig, TransformDef, Schema, DTOs |
-| `etl-core` | 核心引擎：ConfigParser, ExpressionEvaluator, TransformPipeline, DeadLetterQueue |
-| `etl-extract` | 抽取层：JdbcExtractor(JdbcTemplate), CsvExtractor, WatermarkStore |
-| `etl-transform` | 转换层：Filter, Rename, TypeCast, Aggregate, Join, **Split** |
-| `etl-load` | 加载层：PersistHandler, ConsumerDispatch, InMemoryDataStore, ConsumerRegistry |
-| `etl-api` | Web 层：REST API, Dashboard, Security, Metrics, StateStore, LineageStore |
-
-## Camel-Native 模式（NEW）
-
-Pipeline 配置可直接映射为 Apache Camel Route，无需手写 Java 代码：
-
-```bash
-# 方式 1: 通过 API 注册（自动创建 Camel Route）
-curl -X POST http://localhost:8080/api/pipelines/camel/register   -H "X-API-Key: dev-admin"   -H "Content-Type: application/json"   -d @config/samples/etl_oracle_sample.json
-
-# 方式 2: 查看已注册的 Camel Routes
-curl http://localhost:8080/api/pipelines/camel/routes   -H "X-API-Key: dev-admin"
-```
-
-**Camel 优势**：
-- 200+ 组件开箱即用（JDBC、Kafka、FTP、CSV...）
-- EIP 模式（Filter、Aggregate、Split、Multicast）无需自实现
-- `onException` 声明式错误处理 + 自动重试
-- JMX 监控 + Hawtio 管理控制台
-- 一条 Route 替代手动编排
+| `etl-core` | 核心：ConfigParser, ExpressionEvaluator, CamelDeadLetterHandler |
+| `etl-extract` | 抽取层：Jdbc/Csv/Kafka/Sftp Extractor + ExtractorRegistry |
+| `etl-transform` | 转换层：Filter, Rename, TypeCast, Aggregate, Join, Split |
+| `etl-load` | 加载层：PersistHandler, ConsumerDispatch, ConsumerRegistry |
+| `etl-api` | Web 层：REST API, Dashboard, Security, Metrics, CamelRouteFactory |
 
 ## 快速开始
 
 ```bash
-# 启动（H2 内存库，无需外部依赖）
+# 启动
 ./gradlew :etl-api:bootRun
 
-# 打开 Dashboard
-open http://localhost:8080/dashboard
+# Hawtio 监控控制台 (Camel Routes 可视化)
+open http://localhost:8080/hawtio
 
 # Swagger
 open http://localhost:8080/swagger-ui.html
@@ -83,18 +72,14 @@ open http://localhost:8080/swagger-ui.html
   "pipeline": {
     "name": "my-etl",
     "version": "1.0",
-    "cron": "0 */10 * * * ?",       // 可选：定时调度
-    "dependsOn": ["upstream-pipeline"], // 可选：依赖
-    "tenant": "team-a"                // 可选：多租户
+    "cron": "0 */10 * * * ?",
+    "dependsOn": ["upstream-pipeline"],
+    "tenant": "team-a"
   },
   "datasource": { ... },
-  "watermark": {                      // 可选：增量抽取
+  "watermark": {
     "column": "updated_at",
     "initial": "2024-01-01"
-  },
-  "parallel": {                       // 可选：并行处理
-    "extractPartitions": 4,
-    "transformThreads": 2
   },
   "inputSchema": { ... },
   "transforms": [ ... ],
@@ -104,7 +89,7 @@ open http://localhost:8080/swagger-ui.html
 
 ### 数据源
 
-**JDBC（Oracle / MySQL / PostgreSQL）** — 基于 Spring `JdbcTemplate` + `HikariCP` 连接池：
+**JDBC (Oracle/MySQL/PostgreSQL)**:
 
 ```jsonc
 {
@@ -119,361 +104,61 @@ open http://localhost:8080/swagger-ui.html
 }
 ```
 
-`{{env:VAR}}` 运行时从环境变量注入，密码不存明文。
+**Kafka / CSV / SFTP** 同样支持，详见 `config/samples/`。
 
-**Kafka** — 通过 Apache Camel Kafka 组件消费消息：
-
-```jsonc
-{
-  "type": "kafka",
-  "connection": {
-    "bootstrapServers": "localhost:9092",
-    "topic": "input-topic",
-    "groupId": "etl-group"
-  }
-}
-```
-
-**SFTP** — 通过 Apache Camel FTP 组件拉取远程文件：
-
-```jsonc
-{
-  "type": "sftp",
-  "connection": {
-    "host": "sftp.example.com",
-    "port": 22,
-    "username": "{{env:SFTP_USER}}",
-    "password": "{{env:SFTP_PASS}}",
-    "directory": "/incoming"
-  },
-  "fileName": "*.csv"
-}
-```
-
-**CSV** — 纯 Java NIO，流式读取：
-
-```jsonc
-{
-  "type": "csv",
-  "filePath": "/data/sales.csv",
-  "delimiter": ",",
-  "hasHeader": true
-}
-```
+`{{env:VAR}}` 运行时从环境变量注入。
 
 ### Transform 类型
 
-| type | 说明 | JSON 示例 |
+| type | 说明 | Camel EIP |
 |------|------|-----------|
-| `filter` | 行级过滤 | `{"type":"filter", "expression":"salary > 0 && dept == 'Eng'"}` |
-| `rename` | 字段重命名 | `{"type":"rename", "mappings":[{"from":"name","to":"employee_name"}]}` |
-| `typeCast` | 类型转换 | `{"type":"typeCast", "mappings":[{"field":"price","toType":"DECIMAL"}]}` |
-| `aggregate` | 分组聚合 | `{"type":"aggregate", "groupBy":["dept"], "aggregations":[{"field":"salary", "function":"SUM", "alias":"total"}]}` |
-| `join` | 同库 JOIN | `{"type":"join", "query":"SELECT name FROM dept WHERE id = :dept_id", "leftKey":"dept_id", "rightKey":"1", "joinType":"INNER"}` |
-| `split` | 拆分行 | `{"type":"split", "field":"tags", "delimiter":","}` |
+| `filter` | 行级过滤 | `.filter(predicate)` |
+| `rename` | 字段重命名 | `.process(rename)` |
+| `typeCast` | 类型转换 | `.process(cast)` |
+| `aggregate` | 分组聚合 | `.aggregate(strategy)` |
+| `join` | 关联查询 | `.enrich(jdbc:...)` |
+| `split` | 数据拆分 | `.split(body())` |
 
-聚合函数: `SUM`, `AVG`, `COUNT`, `MIN`, `MAX`
-
-### 增量抽取
-
-配置 `watermark` 字段后，每次抽取记录水位值。下次执行自动追加 `WHERE watermark_col > 'last_value'`，水位持久化在 `data/watermarks.json`。
-
-### 输出策略
-
-```jsonc
-{
-  "output": {
-    "enabled": true,
-    "threshold": 10000,           // 行数 > 阈值才落盘
-    "storage": {
-      "type": "postgresql",
-      "table": "etl_output.result"
-    }
-  }
-}
-```
-
-## 数据血缘
-
-每次 Pipeline 执行成功后自动记录血缘关系：
-
-```
-Pipeline → Output Table → Consumer → Rows → Timestamp
-```
-
-查询接口：
-
-```bash
-GET /api/pipelines/lineage                    # 全部血缘
-GET /api/pipelines/lineage?pipeline=my-etl    # 按 Pipeline 过滤
-```
-
-血缘数据持久化在 `data/lineage.json`，重启不丢失。
-
-## 数据清洗 & 验证
-
-**执行前校验** — `PipelineConfig.validate()` 在解析 JSON 后、执行前自动运行：
-
-| 校验项 | 说明 |
-|--------|------|
-| 必填字段 | pipeline.name, datasource, inputSchema.fields |
-| 游标列存在性 | cursor.column 必须在 inputSchema 中声明 |
-| Transform 字段引用 | rename/typeCast/aggregate 引用的字段必须在 schema 中 |
-
-**执行中清洗** — Transform 链提供 6 种数据清洗能力：
-
-| Transform | 清洗场景 |
-|-----------|---------|
-| `filter` | 剔除无效行（salary > 0, status == 'active'） |
-| `typeCast` | 类型规范化（STRING→DECIMAL, 日期格式统一） |
-| `rename` | 字段名标准化（source_name → target_name） |
-| `split` | 拆分行（逗号分隔的 tags → 每行一个 tag） |
-| `aggregate` | 去重聚合（按维度 SUM/COUNT） |
-| `join` | 维度补全（事实表 JOIN 维度表） |
-
-**错误行隔离** — DeadLetterQueue 机制：单行 Transform 失败不会阻塞全量，失败行记录日志，成功行继续流转。
-
-## 下游消费
-
-```jsonc
-POST /api/consumers/register
-{
-  "consumer": { "name": "dashboard", "endpoint": "http://..." },
-  "subscriptions": [{
-    "pipeline": "my-etl",
-    "outputSchema": {
-      "fields": [{"name":"dept","type":"STRING"}, {"name":"total","type":"DECIMAL"}]
-    },
-    "filter": "total > 50000",
-    "delivery": { "mode": "PULL", "batchSize": 200 }
-  }]
-}
-```
-
-- **PULL**: `GET /api/consumers/data/{pipeline}?consumer=dashboard&page=0&pageSize=500`
-- **PUSH**: ETL 完成后 POST 到 consumer endpoint
-
-## API 参考
-
-### Pipeline
-
-| 方法 | 路径 | 角色 |
-|------|------|------|
-| `POST` | `/api/pipelines/register` | ADMIN |
-| `DELETE` | `/api/pipelines/{name}` | ADMIN |
-| `POST` | `/api/pipelines/execute` | ADMIN, OPERATOR |
-| `POST` | `/api/pipelines/{name}/execute` | ADMIN, OPERATOR |
-| `POST` | `/api/pipelines/{name}/retry?runId=xxx` | ADMIN, OPERATOR |
-| `GET` | `/api/pipelines` | ALL |
-| `GET` | `/api/pipelines/{name}` | ALL |
-| `GET` | `/api/pipelines/runs` | ALL |
-| `GET` | `/api/pipelines/runs/{runId}` | ALL |
-| `GET` | `/api/pipelines/lineage` | ALL |
-
-### 消费者
-
-| 方法 | 路径 | 角色 |
-|------|------|------|
-| `POST` | `/api/consumers/register` | ADMIN |
-| `DELETE` | `/api/consumers/{name}` | ADMIN |
-| `GET` | `/api/consumers` | ALL |
-| `GET` | `/api/consumers/data/{pipeline}?consumer=xxx&page=0&pageSize=500` | ALL |
-
-### 认证
-
-所有 API 需 `X-API-Key` Header，配置在 `application.yml`:
-
-```yaml
-etl:
-  api-keys: sk-admin:ADMIN,sk-operator:OPERATOR,sk-viewer:VIEWER
-```
-
-Dashboard (`/dashboard`) 和 Swagger 无需认证。
-
-## 灾备 & 容错
-
-| 能力 | 实现 |
-|------|------|
-| **失败重试** | RetryHandler: 3 次指数退避 (1s → 2s → 4s) |
-| **错误行隔离** | DeadLetterQueue: 单行失败不阻塞全量 |
-| **人工恢复** | `POST /api/pipelines/{name}/retry?runId=xxx` |
-| **持久化** | StateStore: 重启不丢 Pipeline/Consumer/Watermark |
-| **连接池** | HikariCP, 10 连接上限 |
-
-## 可观测性
+## API 端点
 
 | 端点 | 说明 |
 |------|------|
-| `/dashboard` | 控制台：Pipeline 列表、最近执行、数据血缘 |
-| `/actuator/metrics` | `etl.pipelines.executed`, `etl.rows.extracted`, `etl.pipeline.duration` |
+| `POST /api/pipelines/register` | 注册 Pipeline（自动创建 Camel Route） |
+| `DELETE /api/pipelines/{name}` | 注销 Pipeline（停止并移除 Route） |
+| `POST /api/pipelines/execute` | 直接执行 Pipeline JSON |
+| `POST /api/pipelines/{name}/execute` | 按名称触发执行 |
+| `GET /api/pipelines` | 列出所有 Pipeline |
+| `GET /api/pipelines/routes` | 列出所有 Camel Routes |
+| `GET /api/pipelines/{name}/audit` | 审计日志 |
+| `GET /api/pipelines/lineage` | 数据血缘 |
+
+## 监控
+
+### Hawtio 控制台
+
+`http://localhost:8080/hawtio` — Camel Routes 可视化、JMX 指标、实时调试。
+
+### Actuator
+
+| 端点 | 指标 |
+|------|------|
 | `/actuator/health` | 健康检查 |
-| `/swagger-ui.html` | OpenAPI 文档 |
+| `/actuator/metrics` | `etl.pipelines.executed`, `etl.rows.extracted` |
+| `/actuator/jolokia` | JMX (Hawtio 后端) |
 
 ## 项目结构
 
 ```
 Generic-ETL/
-├── etl-api/          Spring Boot 入口 + REST + Dashboard + Security + Store + Metrics
+├── etl-api/          Spring Boot + CamelRouteFactory + REST + Hawtio
 ├── etl-common/       PipelineConfig, TransformDef, Schema, Row, DTOs
-├── etl-core/         ConfigParser, ExpressionEvaluator, TransformPipeline, DeadLetterQueue
-├── etl-extract/      JdbcExtractor(JdbcTemplate), CsvExtractor, WatermarkStore
-├── etl-transform/    Filter, Rename, TypeCast, Aggregate, Join, Split 实现
-├── etl-load/         PersistHandler, ConsumerDispatch, InMemoryDataStore, ConsumerRegistry
-├── config/samples/   5 个 Pipeline + 2 个 Consumer 示例
-├── config/sql/       PostgreSQL DDL（含日/周/月聚合视图）
-├── data/             运行时持久化（pipelines.json, consumers.json, watermarks.json, lineage.json）
+├── etl-core/         ConfigParser, ExpressionEvaluator, CamelDeadLetterHandler
+├── etl-extract/      Jdbc/Csv/Kafka/Sftp Extractor
+├── etl-transform/    Filter, Rename, TypeCast, Aggregate, Join, Split
+├── etl-load/         PersistHandler, ConsumerDispatch, ConsumerRegistry
+├── config/samples/   Pipeline + Consumer 示例
 └── docker-compose.yml
 ```
-
-
-
-## 实战示例：Kafka → 增量统计 → 输出
-
-目标：从 Kafka topic `events` 消费消息，按类型统计事件数量，结果写入 PostgreSQL。
-
-### Step 1: 编写 Pipeline JSON
-
-创建 `kafka-stats.json`：
-
-```jsonc
-{
-  "pipeline": {
-    "name": "kafka-event-stats",
-    "version": "1.0",
-    "cron": "0 */5 * * * ?"          // 每 5 分钟执行一次
-  },
-  "datasource": {
-    "type": "kafka",
-    "connection": {
-      "bootstrapServers": "localhost:9092",
-      "topic": "events",
-      "groupId": "etl-stats-group"
-    }
-  },
-  "watermark": {
-    "column": "kafka_offset",        // 增量：只消费上次 offset 之后的消息
-    "initial": "0"
-  },
-  "inputSchema": {
-    "fields": [
-      {"name": "kafka_topic", "type": "STRING"},
-      {"name": "kafka_offset", "type": "LONG"},
-      {"name": "value",       "type": "STRING"}   // JSON: {"type":"click","user":"alice"}
-    ]
-  },
-  "transforms": [
-    {
-      "type": "aggregate",
-      "groupBy": ["value"],                         // 按消息内容分组
-      "aggregations": [
-        {"field": "kafka_offset", "function": "COUNT", "alias": "event_count"}
-      ]
-    }
-  ],
-  "output": {
-    "enabled": true,
-    "threshold": 0,                                // 每次都落盘
-    "storage": {
-      "type": "postgresql",
-      "table": "etl_output.kafka_event_stats"
-    }
-  }
-}
-```
-
-### Step 2: 准备输出表
-
-```sql
-CREATE TABLE IF NOT EXISTS etl_output.kafka_event_stats (
-    value       VARCHAR(1024),
-    event_count BIGINT DEFAULT 0,
-    cached_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (value)
-);
-```
-
-### Step 3: 注册 + 执行
-
-```bash
-# 注册 Pipeline（会自动按 cron 每 5 分钟调度）
-curl -X POST http://localhost:8080/api/pipelines/register   -H "X-API-Key: dev-admin"   -H "Content-Type: application/json"   -d @kafka-stats.json
-
-# 立即手动执行一次
-curl -X POST http://localhost:8080/api/pipelines/kafka-event-stats/execute   -H "X-API-Key: dev-admin"
-```
-
-### Step 4: 注册下游消费者
-
-```bash
-curl -X POST http://localhost:8080/api/consumers/register   -H "X-API-Key: dev-admin"   -H "Content-Type: application/json"   -d '{
-    "consumer": {"name": "stats-dashboard", "endpoint": "http://dashboard:8080/ingest"},
-    "subscriptions": [{
-      "pipeline": "kafka-event-stats",
-      "outputSchema": {
-        "fields": [
-          {"name": "value", "type": "STRING"},
-          {"name": "event_count", "type": "LONG"}
-        ]
-      },
-      "delivery": {"mode": "PULL", "batchSize": 200}
-    }]
-  }'
-```
-
-### Step 5: 拉取结果
-
-```bash
-curl "http://localhost:8080/api/consumers/data/kafka-event-stats?consumer=stats-dashboard&page=0&pageSize=100"   -H "X-API-Key: dev-viewer"
-```
-
-响应：
-```json
-{
-  "success": true,
-  "data": {
-    "pipeline": "kafka-event-stats",
-    "consumer": "stats-dashboard",
-    "totalRows": 3,
-    "page": 0,
-    "pageSize": 100,
-    "totalPages": 1,
-    "data": [
-      {"value": "{\"type\":\"click\",\"user\":\"alice\"}", "event_count": 1523},
-      {"value": "{\"type\":\"pageview\",\"user\":\"bob\"}", "event_count": 891},
-      {"value": "{\"type\":\"purchase\",\"user\":\"carol\"}", "event_count": 47}
-    ],
-    "hasMore": false
-  }
-}
-```
-
-### 关键点说明
-
-| 步骤 | 说明 |
-|---|---|
-| `watermark.column: kafka_offset` | 每次执行后记录最新 offset，下次只消费新消息 — **真正的增量** |
-| `aggregate.groupBy: ["value"]` | 按原始消息内容分组统计，相当于 `GROUP BY value` |
-| `output.threshold: 0` | 无论多少行都落盘，保证统计结果不丢失 |
-| `cron: 0 */5 * * * ?` | 自动调度，无需手动触发 |
-| `pipelineStore` 持久化 | 重启后 Pipeline 配置不丢失，cron 继续生效 |
-
-### 扩展：改成全量统计
-
-如果不需要增量，去掉 `watermark` 字段即可 — Kafka extractor 每次从头消费所有消息，重新聚合全量结果。
-
-
-## 重构路线图
-
-| 阶段 | 状态 | 说明 |
-|------|------|------|
-| Phase 1: 删除双引擎 | ✅ | 移除 CamelPipelineEngine + engine 字段 |
-| Phase 2: CamelRouteFactory | ✅ | PipelineConfig → Camel Route 动态映射 |
-| Phase 3: TransformProcessor 适配 | ✅ | CamelTransformAdapter 桥接 |
-| Phase 4: Extractor/Load 双路径 | ✅ | buildEndpointUri + Exchange 支持 |
-| Phase 5: 全 Camel EIP 替代 | 🔜 | Filter→.filter(), Aggregate→.aggregate() 原生 |
-| Phase 6: Hawtio 监控 | 🔜 | 替代自建 Dashboard |
-
-详见: [docs/analysis/camel-integration-assessment.md](docs/analysis/camel-integration-assessment.md)
 
 ## License
 

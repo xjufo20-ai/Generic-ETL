@@ -16,52 +16,49 @@ import java.util.concurrent.ScheduledFuture;
 public class PipelineScheduler {
 
     private final TaskScheduler taskScheduler;
-    private final PipelineExecutionService executionService;
+    private final CamelRouteFactory routeFactory;
     private final PipelineConfigParser configParser;
     private final StateStore store;
     private final Map<String, ScheduledFuture<?>> scheduledTasks = new ConcurrentHashMap<>();
 
-    public PipelineScheduler(TaskScheduler taskScheduler, PipelineExecutionService executionService,
+    public PipelineScheduler(TaskScheduler taskScheduler, CamelRouteFactory routeFactory,
                               PipelineConfigParser configParser, StateStore store) {
         this.taskScheduler = taskScheduler;
-        this.executionService = executionService;
+        this.routeFactory = routeFactory;
         this.configParser = configParser;
         this.store = store;
     }
 
     public void register(String pipelineJson) throws Exception {
-        PipelineConfig config;
-        try { config = configParser.parseFromString(pipelineJson); } catch (Exception e) { throw new RuntimeException(e); }
+        PipelineConfig config = configParser.parseFromString(pipelineJson);
         String name = config.getPipeline().getName();
         store.putPipeline(name, pipelineJson);
-        // no throws here since StateStore handles internally
 
+        // Register as Camel route
+        routeFactory.register(config);
+
+        // Schedule if cron is set
         if (config.getPipeline().getCron() != null && !config.getPipeline().getCron().isBlank()) {
             schedule(name, config.getPipeline().getCron());
         }
-        log.info("Pipeline '{}' registered (cron: {})", name, config.getPipeline().getCron());
+        log.info("Registered pipeline '{}'", name);
     }
 
     public void unregister(String name) {
-        cancel(name);
+        ScheduledFuture<?> f = scheduledTasks.remove(name);
+        if (f != null) f.cancel(false);
+        routeFactory.unregister(name);
         store.removePipeline(name);
-        log.info("Pipeline '{}' unregistered", name);
+        log.info("Unregistered pipeline '{}'", name);
     }
 
-    private void schedule(String name, String cronExpression) {
-        cancel(name);
-        CronTrigger trigger = new CronTrigger(cronExpression, TimeZone.getDefault());
+    private void schedule(String name, String cron) {
+        CronTrigger trigger = new CronTrigger(cron, TimeZone.getDefault());
         ScheduledFuture<?> future = taskScheduler.schedule(() -> {
-            log.info("Cron trigger: executing '{}'", name);
-            try { executionService.executeByName(name, store); }
-            catch (Exception e) { log.error("Scheduled '{}' failed", name, e); }
+            try { routeFactory.execute(name); }
+            catch (Exception e) { log.error("Scheduled pipeline '{}' failed", name, e); }
         }, trigger);
         scheduledTasks.put(name, future);
-        log.info("Pipeline '{}' scheduled: {}", name, cronExpression);
-    }
-
-    private void cancel(String name) {
-        ScheduledFuture<?> future = scheduledTasks.remove(name);
-        if (future != null) future.cancel(false);
+        log.info("Scheduled '{}' with cron: {}", name, cron);
     }
 }

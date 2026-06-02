@@ -11,10 +11,12 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,jolokia,hawtio
   endpoint:
     health:
       show-details: always
+    jolokia:
+      enabled: true
 
 eureka:
   client:
@@ -30,8 +32,14 @@ camel:
   springboot:
     main-run-controller: true
     name: GenericETL
+    jmx-enabled: true
   component:
     kafka:
-      enabled: false   # Enable when Kafka is available
+      enabled: false
     ftp:
-      enabled: false   # Enable when SFTP/FTP is needed
+      enabled: false
+
+# ── Hawtio Management Console ──
+hawtio:
+  authentication-enabled: false
+  proxy-whitelist: localhost

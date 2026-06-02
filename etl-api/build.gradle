@@ -19,6 +19,9 @@ dependencies {
     implementation "org.apache.camel:camel-csv:${camelVersion}"
     implementation "org.apache.camel:camel-kafka:${camelVersion}"
     implementation "org.apache.camel:camel-ftp:${camelVersion}"
+    implementation "org.apache.camel:camel-management:${camelVersion}"
+    // Hawtio Monitoring Console
+    implementation 'io.hawt:hawtio-springboot:4.2.0'
     runtimeOnly 'org.postgresql:postgresql:42.7.4'
     runtimeOnly 'com.h2database:h2'
 }
