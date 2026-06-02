@@ -301,6 +301,142 @@ Generic-ETL/
 └── docker-compose.yml
 ```
 
+
+
+## 实战示例：Kafka → 增量统计 → 输出
+
+目标：从 Kafka topic `events` 消费消息，按类型统计事件数量，结果写入 PostgreSQL。
+
+### Step 1: 编写 Pipeline JSON
+
+创建 `kafka-stats.json`：
+
+```jsonc
+{
+  "pipeline": {
+    "name": "kafka-event-stats",
+    "version": "1.0",
+    "cron": "0 */5 * * * ?"          // 每 5 分钟执行一次
+  },
+  "datasource": {
+    "type": "kafka",
+    "connection": {
+      "bootstrapServers": "localhost:9092",
+      "topic": "events",
+      "groupId": "etl-stats-group"
+    }
+  },
+  "watermark": {
+    "column": "kafka_offset",        // 增量：只消费上次 offset 之后的消息
+    "initial": "0"
+  },
+  "inputSchema": {
+    "fields": [
+      {"name": "kafka_topic", "type": "STRING"},
+      {"name": "kafka_offset", "type": "LONG"},
+      {"name": "value",       "type": "STRING"}   // JSON: {"type":"click","user":"alice"}
+    ]
+  },
+  "transforms": [
+    {
+      "type": "aggregate",
+      "groupBy": ["value"],                         // 按消息内容分组
+      "aggregations": [
+        {"field": "kafka_offset", "function": "COUNT", "alias": "event_count"}
+      ]
+    }
+  ],
+  "output": {
+    "enabled": true,
+    "threshold": 0,                                // 每次都落盘
+    "storage": {
+      "type": "postgresql",
+      "table": "etl_output.kafka_event_stats"
+    }
+  }
+}
+```
+
+### Step 2: 准备输出表
+
+```sql
+CREATE TABLE IF NOT EXISTS etl_output.kafka_event_stats (
+    value       VARCHAR(1024),
+    event_count BIGINT DEFAULT 0,
+    cached_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (value)
+);
+```
+
+### Step 3: 注册 + 执行
+
+```bash
+# 注册 Pipeline（会自动按 cron 每 5 分钟调度）
+curl -X POST http://localhost:8080/api/pipelines/register   -H "X-API-Key: dev-admin"   -H "Content-Type: application/json"   -d @kafka-stats.json
+
+# 立即手动执行一次
+curl -X POST http://localhost:8080/api/pipelines/kafka-event-stats/execute   -H "X-API-Key: dev-admin"
+```
+
+### Step 4: 注册下游消费者
+
+```bash
+curl -X POST http://localhost:8080/api/consumers/register   -H "X-API-Key: dev-admin"   -H "Content-Type: application/json"   -d '{
+    "consumer": {"name": "stats-dashboard", "endpoint": "http://dashboard:8080/ingest"},
+    "subscriptions": [{
+      "pipeline": "kafka-event-stats",
+      "outputSchema": {
+        "fields": [
+          {"name": "value", "type": "STRING"},
+          {"name": "event_count", "type": "LONG"}
+        ]
+      },
+      "delivery": {"mode": "PULL", "batchSize": 200}
+    }]
+  }'
+```
+
+### Step 5: 拉取结果
+
+```bash
+curl "http://localhost:8080/api/consumers/data/kafka-event-stats?consumer=stats-dashboard&page=0&pageSize=100"   -H "X-API-Key: dev-viewer"
+```
+
+响应：
+```json
+{
+  "success": true,
+  "data": {
+    "pipeline": "kafka-event-stats",
+    "consumer": "stats-dashboard",
+    "totalRows": 3,
+    "page": 0,
+    "pageSize": 100,
+    "totalPages": 1,
+    "data": [
+      {"value": "{\"type\":\"click\",\"user\":\"alice\"}", "event_count": 1523},
+      {"value": "{\"type\":\"pageview\",\"user\":\"bob\"}", "event_count": 891},
+      {"value": "{\"type\":\"purchase\",\"user\":\"carol\"}", "event_count": 47}
+    ],
+    "hasMore": false
+  }
+}
+```
+
+### 关键点说明
+
+| 步骤 | 说明 |
+|---|---|
+| `watermark.column: kafka_offset` | 每次执行后记录最新 offset，下次只消费新消息 — **真正的增量** |
+| `aggregate.groupBy: ["value"]` | 按原始消息内容分组统计，相当于 `GROUP BY value` |
+| `output.threshold: 0` | 无论多少行都落盘，保证统计结果不丢失 |
+| `cron: 0 */5 * * * ?` | 自动调度，无需手动触发 |
+| `pipelineStore` 持久化 | 重启后 Pipeline 配置不丢失，cron 继续生效 |
+
+### 扩展：改成全量统计
+
+如果不需要增量，去掉 `watermark` 字段即可 — Kafka extractor 每次从头消费所有消息，重新聚合全量结果。
+
 ## License
 
 MIT
