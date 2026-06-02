@@ -13,8 +13,12 @@ dependencies {
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
-    implementation "org.apache.camel:camel-core:${camelVersion}"
+    // Apache Camel
+    implementation "org.apache.camel.springboot:camel-spring-boot-starter:${camelVersion}"
     implementation "org.apache.camel:camel-jdbc:${camelVersion}"
+    implementation "org.apache.camel:camel-csv:${camelVersion}"
+    implementation "org.apache.camel:camel-kafka:${camelVersion}"
+    implementation "org.apache.camel:camel-ftp:${camelVersion}"
     runtimeOnly 'org.postgresql:postgresql:42.7.4'
     runtimeOnly 'com.h2database:h2'
 }
