@@ -41,13 +41,16 @@ public class PipelineExecutionService {
     private final AtomicLong runIdSeq = new AtomicLong(1);
 
     public PipelineExecutionService(PipelineConfigParser configParser, TransformPipeline transformPipeline,
-                                     ExtractorRegistry extractorRegistry, LoadRouter loadRouter, EtlMetrics metrics, AuditLog auditLog, LineageStore lineageStore) {
-        this(configParser, transformPipeline, extractorRegistry, loadRouter, metrics, auditLog, new RetryHandler(), lineageStore);
+                                     ExtractorRegistry extractorRegistry, LoadRouter loadRouter,
+                                     EtlMetrics metrics, AuditLog auditLog, LineageStore lineageStore) {
+        this(configParser, transformPipeline, extractorRegistry, loadRouter, metrics, auditLog,
+             new RetryHandler(), lineageStore);
     }
 
     public PipelineExecutionService(PipelineConfigParser configParser, TransformPipeline transformPipeline,
                                      ExtractorRegistry extractorRegistry, LoadRouter loadRouter,
-                                     EtlMetrics metrics, AuditLog auditLog, RetryHandler retryHandler, LineageStore lineageStore) {
+                                     EtlMetrics metrics, AuditLog auditLog,
+                                     RetryHandler retryHandler, LineageStore lineageStore) {
         this.configParser = configParser;
         this.transformPipeline = transformPipeline;
         this.extractorRegistry = extractorRegistry;
@@ -58,7 +61,9 @@ public class PipelineExecutionService {
         this.retryHandler = retryHandler;
     }
 
-    public PipelineRun executeFromJson(String pipelineJson) { return doExecute(runIdSeq.getAndIncrement(), pipelineJson); }
+    public PipelineRun executeFromJson(String pipelineJson) {
+        return doExecute(runIdSeq.getAndIncrement(), pipelineJson);
+    }
 
     public PipelineRun executeByName(String pipelineName, StateStore store) {
         String json = store.getPipeline(pipelineName);
@@ -75,13 +80,20 @@ public class PipelineExecutionService {
 
     private PipelineRun doExecute(long runId, String pipelineJson) {
         PipelineConfig config;
-        try { config = configParser.parseFromString(pipelineJson); }
-        catch (Exception e) { return fail(runId, null, "Parse error: " + e.getMessage()); }
+        try {
+            config = configParser.parseFromString(pipelineJson);
+        } catch (Exception e) {
+            return fail(runId, null, "Parse error: " + e.getMessage());
+        }
 
         List<String> issues = config.validate();
-        if (!issues.isEmpty()) return fail(runId, config.getPipeline().getName(), "Validation: " + String.join("; ", issues));
+        if (!issues.isEmpty()) {
+            return fail(runId, config.getPipeline().getName(),
+                        "Validation: " + String.join("; ", issues));
+        }
 
-        PipelineRun run = PipelineRun.builder().id(runId).pipelineName(config.getPipeline().getName())
+        PipelineRun run = PipelineRun.builder()
+                .id(runId).pipelineName(config.getPipeline().getName())
                 .status("RUNNING").startTime(LocalDateTime.now()).build();
         runHistory.put(runId, run);
 
@@ -90,31 +102,37 @@ public class PipelineExecutionService {
                 ParallelConfig pc = config.getParallel() != null ? config.getParallel() : new ParallelConfig();
                 DeadLetterQueue dlq = new DeadLetterQueue();
 
-                // Parallel extraction + transform + load
-                List<Row> rows;
-                if (pc.getExtractPartitions() > 1) {
-                    rows = executeParallel(config, pc, dlq);
-                } else {
-                    rows = executeSequential(config, pc, dlq);
-                }
+                List<Row> rows = pc.getExtractPartitions() > 1
+                        ? executeParallel(config, pc, dlq)
+                        : executeSequential(config, pc);
 
                 loadRouter.route(config.getPipeline().getName(), rows, config.getOutput());
 
                 long dur = Duration.between(run.getStartTime(), LocalDateTime.now()).toMillis();
-                run.setStatus("SUCCESS"); run.setRowCount(rows.size());
-                lineageStore.record(config.getPipeline().getName(), 
-                        config.getOutput() != null && config.getOutput().getStorage() != null ? config.getOutput().getStorage().getTable() : "in-memory", 
-                        "default", rows.size(), "SUCCESS"); run.setDurationMs(dur); run.setEndTime(LocalDateTime.now());
-                metrics.recordSuccess(config.getPipeline().getName(), rows.size(), dur);
+                String outputTable = config.getOutput() != null && config.getOutput().getStorage() != null
+                        ? config.getOutput().getStorage().getTable() : "in-memory";
+
+                run.setStatus("SUCCESS");
+                run.setRowCount(rows.size());
+                run.setDurationMs(dur);
+                run.setEndTime(LocalDateTime.now());
+
+                lineageStore.record(config.getPipeline().getName(), outputTable, "default", rows.size(), "SUCCESS");
                 auditLog.recordExecution(config.getPipeline().getName(), "SUCCESS", rows.size(), "system");
+                metrics.recordSuccess(config.getPipeline().getName(), rows.size(), dur);
+
                 log.info("Pipeline '{}': {} rows in {}ms (DLQ: {})",
-                        config.getPipeline().getName(), rows.size(), dur, dlq.getFailures(config.getPipeline().getName()).size());
+                        config.getPipeline().getName(), rows.size(), dur,
+                        dlq.getFailures(config.getPipeline().getName()).size());
                 return null;
             }, config.getPipeline().getName());
         } catch (Exception e) {
             long dur = Duration.between(run.getStartTime(), LocalDateTime.now()).toMillis();
-            run.setStatus("FAILED"); run.setDurationMs(dur); run.setEndTime(LocalDateTime.now());
+            run.setStatus("FAILED");
+            run.setDurationMs(dur);
+            run.setEndTime(LocalDateTime.now());
             run.setErrorMessage(trunc(e.getMessage(), 2000));
+
             auditLog.recordExecution(config.getPipeline().getName(), "FAILED", 0, "system");
             metrics.recordFailure(config.getPipeline().getName());
         }
@@ -122,7 +140,7 @@ public class PipelineExecutionService {
         return run;
     }
 
-    private List<Row> executeSequential(PipelineConfig config, ParallelConfig pc, DeadLetterQueue dlq) {
+    private List<Row> executeSequential(PipelineConfig config, ParallelConfig pc) {
         return transformPipeline.build(config).apply(extractorRegistry.extract(config)).toList();
     }
 
@@ -132,7 +150,6 @@ public class PipelineExecutionService {
             return pool.submit(() ->
                 IntStream.range(0, partitions).parallel().boxed()
                     .flatMap(partition -> {
-                        // Each partition extracts its own shard (cursor-based partitioning via SQL modulo)
                         log.debug("Parallel partition {}/{}", partition + 1, partitions);
                         Stream<Row> extracted = extractorRegistry.extract(config);
                         return transformPipeline.build(config).apply(extracted);
@@ -145,11 +162,16 @@ public class PipelineExecutionService {
     private PipelineRun fail(long id, String name, String msg) {
         PipelineRun r = PipelineRun.builder().id(id).pipelineName(name).status("FAILED")
                 .errorMessage(msg).startTime(LocalDateTime.now()).endTime(LocalDateTime.now()).build();
-        runHistory.put(id, r); return r;
+        runHistory.put(id, r);
+        return r;
     }
 
     public PipelineRun getRun(Long id) { return runHistory.get(id); }
     public List<PipelineRun> getRunHistory() { return new ArrayList<>(runHistory.values()); }
-    public List<PipelineRun> getRunHistory(String name) { return runHistory.values().stream().filter(r -> name.equals(r.getPipelineName())).toList(); }
-    private static String trunc(String s, int max) { return s != null && s.length() > max ? s.substring(0, max) + "..." : s; }
+    public List<PipelineRun> getRunHistory(String name) {
+        return runHistory.values().stream().filter(r -> name.equals(r.getPipelineName())).toList();
+    }
+    private static String trunc(String s, int max) {
+        return s != null && s.length() > max ? s.substring(0, max) + "..." : s;
+    }
 }

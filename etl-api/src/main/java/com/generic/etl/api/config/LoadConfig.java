@@ -2,7 +2,7 @@ package com.generic.etl.api.config;
 
 import com.generic.etl.api.store.StateStore;
 import com.generic.etl.load.ConsumerRegistry;
-import com.generic.etl.load.InMemoryDataStore;
+import com.generic.etl.load.ResultCache;
 import com.generic.etl.load.LoadRouter;
 import com.generic.etl.load.dispatch.ConsumerDispatchService;
 import com.generic.etl.load.persist.PersistHandler;
@@ -24,11 +24,11 @@ public class LoadConfig {
         return registry;
     }
 
-    @Bean public InMemoryDataStore inMemoryDataStore() { return new InMemoryDataStore(3600, 100_000); }
+    @Bean public ResultCache inMemoryDataStore() { return new ResultCache(3600, 100_000); }
 
     @Bean
     public LoadRouter loadRouter(PersistHandler persistHandler, ConsumerDispatchService dispatchService,
-                                  ConsumerRegistry consumerRegistry, InMemoryDataStore inMemoryDataStore) {
+                                  ConsumerRegistry consumerRegistry, ResultCache inMemoryDataStore) {
         return new LoadRouter(persistHandler, dispatchService, consumerRegistry, inMemoryDataStore);
     }
 }

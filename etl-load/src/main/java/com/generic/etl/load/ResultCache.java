@@ -6,13 +6,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class InMemoryDataStore {
+public class ResultCache {
     private final Map<String, CacheEntry> store = new ConcurrentHashMap<>();
     private final long ttlSeconds;
     private final int maxRows;
 
-    public InMemoryDataStore() { this(3600, 100_000); }
-    public InMemoryDataStore(long ttlSeconds, int maxRows) {
+    public ResultCache() { this(3600, 100_000); }
+    public ResultCache(long ttlSeconds, int maxRows) {
         this.ttlSeconds = ttlSeconds;
         this.maxRows = maxRows;
     }

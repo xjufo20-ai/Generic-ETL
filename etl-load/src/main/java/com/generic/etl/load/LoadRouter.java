@@ -16,12 +16,12 @@ public class LoadRouter {
     private final PersistHandler persistHandler;
     private final ConsumerDispatchService dispatchService;
     private final ConsumerRegistry consumerRegistry;
-    private final InMemoryDataStore inMemoryStore;
+    private final ResultCache inMemoryStore;
 
     public LoadRouter(PersistHandler persistHandler,
                       ConsumerDispatchService dispatchService,
                       ConsumerRegistry consumerRegistry,
-                      InMemoryDataStore inMemoryStore) {
+                      ResultCache inMemoryStore) {
         this.persistHandler = persistHandler;
         this.dispatchService = dispatchService;
         this.consumerRegistry = consumerRegistry;
