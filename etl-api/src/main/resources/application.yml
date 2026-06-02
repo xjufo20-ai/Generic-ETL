@@ -24,3 +24,14 @@ eureka:
 
 etl:
   api-keys: sk-admin:ADMIN,sk-operator:OPERATOR,sk-viewer:VIEWER
+
+# ── Apache Camel ──
+camel:
+  springboot:
+    main-run-controller: true
+    name: GenericETL
+  component:
+    kafka:
+      enabled: false   # Enable when Kafka is available
+    ftp:
+      enabled: false   # Enable when SFTP/FTP is needed

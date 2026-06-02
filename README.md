@@ -11,22 +11,27 @@ JSON 配置驱动的轻量 ETL 引擎，基于 **Spring Boot 3.3 + JdbcTemplate 
 ## 架构
 
 ```
- config/samples/*.json       Dashboard (/dashboard)        ConsumerController
-        │                           │                            │
-        ▼                           ▼                            ▼
- PipelineConfigParser ──► PipelineExecutionService ──► ConsumerDispatchService
-        │                           │                            │
-        ▼                           ▼                            ▼
-   PipelineConfig ────► Extract (JDBC/CSV) ──► TransformChain ──► LoadRouter
-      │                        │                       │                │
-      ├─ WatermarkConfig       ├─ JdbcExtractor        ├─ Filter       ├─ Persist
-      ├─ ParallelConfig        │  (JdbcTemplate)       ├─ Rename       │  (threshold)
-      ├─ dependsOn             │                       ├─ TypeCast     ├─ PUSH
-      └─ tenant                ├─ CsvExtractor         ├─ Aggregate    └─ PULL
-                               └─ WatermarkStore       ├─ Join
-                                                       └─ Split
-                                                       DeadLetterQueue
+ config/samples/*.json          Dashboard (/dashboard)        ConsumerController
+        │                              │                            │
+        ▼                              ▼                            ▼
+ PipelineConfigParser ──► CamelRouteFactory ───────────► ConsumerDispatchService
+        │                       │                               │
+        ▼                       ▼                               ▼
+   PipelineConfig        Camel Route DSL                LoadRouter
+      │                 ┌──────────────────┐                 │
+      │                 │ from(source)     │                 ├─ Persist
+      ├─ Watermark      │   .process(trx)  │                 │  (JDBC batch)
+      ├─ Parallel       │   .filter(...)   │                 ├─ PUSH (HTTP)
+      ├─ dependsOn      │   .aggregate(...)│                 └─ PULL (REST)
+      └─ tenant         │   .multicast()   │
+                        │     .to(persist) │
+                        │     .to(dispatch)│
+                        └──────────────────┘
+                        Camel EIP 模式
+                  (Filter, Aggregate, Split, Multicast)
 ```
+
+> **双路径兼容**: 现有 Java Stream 执行路径保留（`PipelineExecutionService`），新增 Camel Route 路径（`CamelRouteFactory`）。两者共享同一套 TransformProcessor 和 LoadRouter。
 
 ## 模块
 
@@ -38,6 +43,25 @@ JSON 配置驱动的轻量 ETL 引擎，基于 **Spring Boot 3.3 + JdbcTemplate 
 | `etl-transform` | 转换层：Filter, Rename, TypeCast, Aggregate, Join, **Split** |
 | `etl-load` | 加载层：PersistHandler, ConsumerDispatch, InMemoryDataStore, ConsumerRegistry |
 | `etl-api` | Web 层：REST API, Dashboard, Security, Metrics, StateStore, LineageStore |
+
+## Camel-Native 模式（NEW）
+
+Pipeline 配置可直接映射为 Apache Camel Route，无需手写 Java 代码：
+
+```bash
+# 方式 1: 通过 API 注册（自动创建 Camel Route）
+curl -X POST http://localhost:8080/api/pipelines/camel/register   -H "X-API-Key: dev-admin"   -H "Content-Type: application/json"   -d @config/samples/etl_oracle_sample.json
+
+# 方式 2: 查看已注册的 Camel Routes
+curl http://localhost:8080/api/pipelines/camel/routes   -H "X-API-Key: dev-admin"
+```
+
+**Camel 优势**：
+- 200+ 组件开箱即用（JDBC、Kafka、FTP、CSV...）
+- EIP 模式（Filter、Aggregate、Split、Multicast）无需自实现
+- `onException` 声明式错误处理 + 自动重试
+- JMX 监控 + Hawtio 管理控制台
+- 一条 Route 替代手动编排
 
 ## 快速开始
 
@@ -436,6 +460,20 @@ curl "http://localhost:8080/api/consumers/data/kafka-event-stats?consumer=stats-
 ### 扩展：改成全量统计
 
 如果不需要增量，去掉 `watermark` 字段即可 — Kafka extractor 每次从头消费所有消息，重新聚合全量结果。
+
+
+## 重构路线图
+
+| 阶段 | 状态 | 说明 |
+|------|------|------|
+| Phase 1: 删除双引擎 | ✅ | 移除 CamelPipelineEngine + engine 字段 |
+| Phase 2: CamelRouteFactory | ✅ | PipelineConfig → Camel Route 动态映射 |
+| Phase 3: TransformProcessor 适配 | ✅ | CamelTransformAdapter 桥接 |
+| Phase 4: Extractor/Load 双路径 | ✅ | buildEndpointUri + Exchange 支持 |
+| Phase 5: 全 Camel EIP 替代 | 🔜 | Filter→.filter(), Aggregate→.aggregate() 原生 |
+| Phase 6: Hawtio 监控 | 🔜 | 替代自建 Dashboard |
+
+详见: [docs/analysis/camel-integration-assessment.md](docs/analysis/camel-integration-assessment.md)
 
 ## License
 
