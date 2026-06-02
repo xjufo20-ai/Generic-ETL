@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.generic.etl.api.metrics.EtlMetrics;
+import org.apache.camel.CamelContext;
+import javax.sql.DataSource;
 import com.generic.etl.api.store.AuditLog;
 import com.generic.etl.api.store.LineageStore;
 import com.generic.etl.api.store.StateStore;
@@ -32,7 +34,14 @@ public class EtlConfig {
     }
 
     @Bean public PipelineConfigParser pipelineConfigParser(ObjectMapper mapper) { return new PipelineConfigParser(mapper); }
-    @Bean public AuditLog auditLog(ObjectMapper mapper) { return new AuditLog(Path.of("data"), mapper); }
+    @Bean public CamelPipelineEngine camelPipelineEngine(CamelContext camelContext, DataSource dataSource,
+                                                    EtlMetrics metrics, AuditLog auditLog,
+                                                    LineageStore lineageStore, PipelineConfigParser parser) {
+        return new CamelPipelineEngine(camelContext, dataSource, metrics, auditLog, lineageStore, parser);
+    }
+
+    @Bean
+    public AuditLog auditLog(ObjectMapper mapper) { return new AuditLog(Path.of("data"), mapper); }
 
     @Bean
     public LineageStore lineageStore(ObjectMapper mapper) { return new LineageStore(Path.of("data"), mapper); }
@@ -47,8 +56,8 @@ public class EtlConfig {
     @Bean
     public PipelineExecutionService pipelineExecutionService(PipelineConfigParser configParser, TransformPipeline transformPipeline,
                                                                ExtractorRegistry extractorRegistry, LoadRouter loadRouter,
-                                                               EtlMetrics metrics, AuditLog auditLog, LineageStore lineageStore) {
-        return new PipelineExecutionService(configParser, transformPipeline, extractorRegistry, loadRouter, metrics, auditLog, lineageStore);
+                                                               EtlMetrics metrics, AuditLog auditLog, LineageStore lineageStore, CamelPipelineEngine camelEngine) {
+        return new PipelineExecutionService(configParser, transformPipeline, extractorRegistry, loadRouter, metrics, auditLog, lineageStore, camelEngine);
     }
 
     @Bean

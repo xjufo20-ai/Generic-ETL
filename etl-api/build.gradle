@@ -1,11 +1,9 @@
 plugins { id 'org.springframework.boot' }
-ext { springCloudVersion = '2023.0.3' }
+ext { springCloudVersion = '2023.0.3'; camelVersion = '4.7.0' }
 
 dependencies {
-    implementation project(':etl-common')
-    implementation project(':etl-core')
-    implementation project(':etl-extract')
-    implementation project(':etl-transform')
+    implementation project(':etl-common'); implementation project(':etl-core')
+    implementation project(':etl-extract'); implementation project(':etl-transform')
     implementation project(':etl-load')
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
@@ -15,6 +13,8 @@ dependencies {
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+    implementation "org.apache.camel:camel-core:${camelVersion}"
+    implementation "org.apache.camel:camel-jdbc:${camelVersion}"
     runtimeOnly 'org.postgresql:postgresql:42.7.4'
     runtimeOnly 'com.h2database:h2'
 }

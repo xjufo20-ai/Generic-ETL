@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 @Data
 public class PipelineConfig {
     private Pipeline pipeline;
+    private String engine = "java";     // "java" (default) or "camel"
     private DataSourceConfig datasource;
     private SchemaConfig inputSchema;
     private List<TransformDef> transforms;
