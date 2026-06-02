@@ -27,6 +27,11 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+/**
+ * Pipeline execution engine.
+ * Extracts → Transforms → Loads, with optional parallelism and retry.
+ * The Camel-native refactor will replace this with CamelRouteFactory in Phase 2.
+ */
 @Slf4j
 public class PipelineExecutionService {
     private final PipelineConfigParser configParser;
@@ -36,29 +41,27 @@ public class PipelineExecutionService {
     private final EtlMetrics metrics;
     private final AuditLog auditLog;
     private final LineageStore lineageStore;
-    private final CamelPipelineEngine camelEngine;
     private final RetryHandler retryHandler;
     private final Map<Long, PipelineRun> runHistory = new ConcurrentHashMap<>();
     private final AtomicLong runIdSeq = new AtomicLong(1);
 
     public PipelineExecutionService(PipelineConfigParser configParser, TransformPipeline transformPipeline,
                                      ExtractorRegistry extractorRegistry, LoadRouter loadRouter,
-                                     EtlMetrics metrics, AuditLog auditLog, LineageStore lineageStore, CamelPipelineEngine camelEngine) {
+                                     EtlMetrics metrics, AuditLog auditLog, LineageStore lineageStore) {
         this(configParser, transformPipeline, extractorRegistry, loadRouter, metrics, auditLog,
-             new RetryHandler(), lineageStore, camelEngine);
+             new RetryHandler(), lineageStore);
     }
 
     public PipelineExecutionService(PipelineConfigParser configParser, TransformPipeline transformPipeline,
                                      ExtractorRegistry extractorRegistry, LoadRouter loadRouter,
                                      EtlMetrics metrics, AuditLog auditLog,
-                                     RetryHandler retryHandler, LineageStore lineageStore, CamelPipelineEngine camelEngine) {
+                                     RetryHandler retryHandler, LineageStore lineageStore) {
         this.configParser = configParser;
         this.transformPipeline = transformPipeline;
         this.extractorRegistry = extractorRegistry;
         this.loadRouter = loadRouter;
         this.metrics = metrics;
         this.auditLog = auditLog;
-        this.camelEngine = camelEngine;
         this.lineageStore = lineageStore;
         this.retryHandler = retryHandler;
     }
@@ -84,13 +87,6 @@ public class PipelineExecutionService {
         PipelineConfig config;
         try {
             config = configParser.parseFromString(pipelineJson);
-        // Camel engine path
-        if ("camel".equalsIgnoreCase(config.getEngine())) {
-            PipelineRun run = camelEngine.execute(pipelineJson);
-            run.setId(runId);
-            runHistory.put(runId, run);
-            return run;
-        }
         } catch (Exception e) {
             return fail(runId, null, "Parse error: " + e.getMessage());
         }
