@@ -21,8 +21,9 @@ public class TransformConfig {
     @Bean public JoinProcessor joinProcessor(DataSource dataSource) { return new JoinProcessor(dataSource); }
     @Bean public SplitProcessor splitProcessor() { return new SplitProcessor(); }
 
+    /** Expose the processor map for both TransformPipeline and CamelRouteFactory. */
     @Bean
-    public TransformPipeline transformPipeline(List<TransformProcessor> processors) {
+    public Map<String, TransformProcessor> transformProcessorMap(List<TransformProcessor> processors) {
         Map<String, TransformProcessor> map = new LinkedHashMap<>();
         map.put("filter", find(processors, FilterProcessor.class));
         map.put("rename", find(processors, RenameProcessor.class));
@@ -30,7 +31,12 @@ public class TransformConfig {
         map.put("aggregate", find(processors, AggregateProcessor.class));
         map.put("join", find(processors, JoinProcessor.class));
         map.put("split", find(processors, SplitProcessor.class));
-        return new TransformPipeline(map);
+        return map;
+    }
+
+    @Bean
+    public TransformPipeline transformPipeline(Map<String, TransformProcessor> transformProcessorMap) {
+        return new TransformPipeline(transformProcessorMap);
     }
 
     private TransformProcessor find(List<TransformProcessor> list, Class<?> type) {

@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
-class TransformChain {
+public class TransformChain {
 
     private final Map<String, TransformProcessor> processors;
 
@@ -21,20 +21,20 @@ class TransformChain {
         this.processors = processors;
     }
 
-    /**
-     * Apply all transforms to a stream of rows.
-     * Row-level transforms (filter, rename, typeCast) are applied as stream.
-     * Set-level transforms (aggregate) are applied after collecting the stream.
-     */
+    /** Apply all transforms from a PipelineConfig. */
     public Stream<Row> apply(Stream<Row> input, PipelineConfig config) {
-        if (config.getTransforms() == null || config.getTransforms().isEmpty()) {
-            return input;
-        }
+        if (config.getTransforms() == null || config.getTransforms().isEmpty()) return input;
+        return apply(input, config.getTransforms());
+    }
+
+    /** Apply a list of TransformDefs to a stream of rows. */
+    public Stream<Row> apply(Stream<Row> input, List<TransformDef> transforms) {
+        if (transforms == null || transforms.isEmpty()) return input;
 
         Stream<Row> stream = input;
         List<Row> collected = null;
 
-        for (TransformDef def : config.getTransforms()) {
+        for (TransformDef def : transforms) {
             TransformProcessor processor = processors.get(def.getType());
             if (processor == null) {
                 throw new IllegalArgumentException("Unknown transform type: " + def.getType());

@@ -10,6 +10,7 @@ import com.generic.etl.api.store.LineageStore;
 import com.generic.etl.api.store.StateStore;
 import com.generic.etl.core.config.PipelineConfigParser;
 import com.generic.etl.core.transform.TransformPipeline;
+import com.generic.etl.core.transform.TransformProcessor;
 import com.generic.etl.extract.adapter.ExtractorRegistry;
 import com.generic.etl.load.LoadRouter;
 import org.apache.camel.CamelContext;
@@ -19,6 +20,7 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 import java.nio.file.Path;
+import java.util.Map;
 
 @Configuration
 public class EtlConfig {
@@ -62,10 +64,13 @@ public class EtlConfig {
     }
 
     @Bean
-    public CamelRouteFactory camelRouteFactory(CamelContext camelContext, PipelineConfigParser configParser,
-                                                EtlMetrics metrics, AuditLog auditLog, LineageStore lineageStore,
-                                                LoadRouter loadRouter) {
-        return new CamelRouteFactory(camelContext, configParser, metrics, auditLog, lineageStore, loadRouter);
+    public CamelRouteFactory camelRouteFactory(CamelContext camelContext,
+                                                PipelineConfigParser configParser,
+                                                EtlMetrics metrics, AuditLog auditLog,
+                                                LineageStore lineageStore, LoadRouter loadRouter,
+                                                Map<String, TransformProcessor> transformProcessorMap) {
+        return new CamelRouteFactory(camelContext, configParser, metrics, auditLog,
+                lineageStore, loadRouter, transformProcessorMap);
     }
 
     @Bean
