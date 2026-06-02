@@ -13,6 +13,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 @Slf4j
 public class JdbcExtractor implements Extractor {
@@ -80,7 +82,18 @@ public class JdbcExtractor implements Extractor {
         }
     }
 
-    private static class CursorSupplier implements java.util.function.Supplier<List<Row>> {
+    
+    @Override
+    public String buildEndpointUri(PipelineConfig config) {
+        DataSourceConfig.JdbcDataSource ds = (DataSourceConfig.JdbcDataSource) config.getDatasource();
+        String query = ds.getQuery();
+        if (config.getWatermark() != null && config.getWatermark().getInitial() != null) {
+            query += " AND " + config.getWatermark().getColumn() + " >= '" + config.getWatermark().getInitial() + "'";
+        }
+        return "jdbc:etlDataSource?outputType=StreamList&query=" + java.net.URLEncoder.encode(query, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+private static class CursorSupplier implements java.util.function.Supplier<List<Row>> {
         private final JdbcTemplate jdbc;
         private final String cursorSql;
         private final String cursorCol;
