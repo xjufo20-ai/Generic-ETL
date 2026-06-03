@@ -15,6 +15,18 @@
 
 - route:
     id: salary-stats
+
+    # ── Error handling: failures are collected by CamelDeadLetterHandler ──
+    onException:
+      - exception: java.lang.Exception
+        handled: true
+        steps:
+          - setProperty:
+              name: pipelineName
+              constant: salary-stats
+          - bean:
+              ref: camelDeadLetterHandler
+
     from:
       uri: jdbc:etlDataSource
       parameters:

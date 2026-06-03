@@ -6,11 +6,8 @@ import com.generic.etl.common.model.*;
  * Compiles PipelineConfig JSON → Camel YAML DSL string.
  * Thin translator — no RouteBuilder. Camel reads the YAML natively.
  *
- * Filter expressions use Camel's MVEL integration:
- *   simple("${body[salary]} > 5000 && ${body[dept]} == 'Eng'")
- * TypeCast uses the ExpressionEvaluator via bean:typeCaster.
- * Join uses Camel's enrich EIP.
- * Split uses Camel's split EIP.
+ * Each generated route includes an onException block that delegates to
+ * camelDeadLetterHandler for error collection and logging.
  */
 public class JsonToYamlCompiler {
 
@@ -20,6 +17,18 @@ public class JsonToYamlCompiler {
 
         yaml.append("- route:\n");
         yaml.append("    id: ").append(name).append("\n");
+
+        // ── Error handling: delegate to CamelDeadLetterHandler ──
+        yaml.append("    onException:\n");
+        yaml.append("      - exception: java.lang.Exception\n");
+        yaml.append("        handled: true\n");
+        yaml.append("        steps:\n");
+        yaml.append("          - setProperty:\n");
+        yaml.append("              name: pipelineName\n");
+        yaml.append("              constant: ").append(name).append("\n");
+        yaml.append("          - bean:\n");
+        yaml.append("              ref: camelDeadLetterHandler\n");
+
         yaml.append("    from:\n");
         yaml.append(buildSource(config));
         yaml.append("    steps:\n");
@@ -95,8 +104,6 @@ public class JsonToYamlCompiler {
             for (var m : p.getMappings())
                 s.append("              ").append(m.getFrom()).append(": ").append(m.getTo()).append("\n");
         } else if (t instanceof TransformDef.FilterDef f) {
-            // Convert MVEL to Camel simple: salary > 5000 && dept == 'Eng'
-            // → ${body[salary]} > 5000 && ${body[dept]} == 'Eng'
             String simple = toCamelSimple(f.getExpression());
             s.append("      - filter:\n          simple: \"").append(simple).append("\"\n");
         } else if (t instanceof TransformDef.RenameDef r) {
@@ -125,7 +132,6 @@ public class JsonToYamlCompiler {
     /** Convert MVEL expression to Camel Simple: "salary > 5000" → "${body[salary]} > 5000" */
     static String toCamelSimple(String expr) {
         if (expr == null || expr.isBlank()) return "true";
-        // Wrap field references in ${body[field]}
         return expr.replaceAll("\\b([a-zA-Z_]\\w*)\\b(?=\\s*[><=!])", "\\${body[$1]}");
     }
 }
