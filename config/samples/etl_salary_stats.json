@@ -1,9 +1,5 @@
 {
-  "pipeline": {
-    "name": "salary-stats",
-    "version": "1.0",
-    "cron": "0 0 8 * * ?"
-  },
+  "pipeline": {"name": "salary-stats", "version": "1.0", "cron": "0 0 8 * * ?"},
   "datasource": {
     "type": "mysql",
     "connection": {
@@ -13,57 +9,31 @@
     },
     "query": "SELECT emp_id, emp_name, dept_code, salary_amt, hire_dt FROM employees"
   },
-  "watermark": {
-    "column": "hire_dt",
-    "initial": "2020-01-01"
-  },
+  "watermark": {"column": "hire_dt", "initial": "2020-01-01"},
   "inputSchema": {
     "fields": [
-      {"name": "emp_id",     "type": "LONG"},
-      {"name": "emp_name",   "type": "STRING"},
-      {"name": "dept_code",  "type": "STRING"},
-      {"name": "salary_amt", "type": "DECIMAL"},
-      {"name": "hire_dt",    "type": "DATE"}
+      {"name": "emp_id", "type": "LONG"}, {"name": "emp_name", "type": "STRING"},
+      {"name": "dept_code", "type": "STRING"}, {"name": "salary_amt", "type": "DECIMAL"},
+      {"name": "hire_dt", "type": "DATE"}
     ]
   },
   "transforms": [
-    {
-      "type": "project",
-      "mappings": [
-        {"from": "emp_id",     "to": "id"},
-        {"from": "emp_name",   "to": "name"},
-        {"from": "dept_code",  "to": "dept"},
-        {"from": "salary_amt", "to": "salary"}
-      ]
-    },
-    {
-      "type": "filter",
-      "expression": "salary > 5000"
-    },
-    {
-      "type": "aggregate",
-      "groupBy": ["dept"],
-      "aggregations": [
-        {"field": "salary", "function": "SUM", "alias": "total_salary"},
-        {"field": "id",     "function": "COUNT", "alias": "employee_count"},
-        {"field": "salary", "function": "AVG", "alias": "avg_salary"}
-      ]
-    }
+    {"type": "project", "mappings": [
+      {"from": "emp_id", "to": "id"}, {"from": "emp_name", "to": "name"},
+      {"from": "dept_code", "to": "dept"}, {"from": "salary_amt", "to": "salary"}
+    ]},
+    {"type": "filter", "expression": "salary > 5000"},
+    {"type": "aggregate", "groupBy": ["dept"], "aggregations": [
+      {"field": "salary", "function": "SUM", "alias": "total_salary"},
+      {"field": "id", "function": "COUNT", "alias": "employee_count"},
+      {"field": "salary", "function": "AVG", "alias": "avg_salary"}
+    ]}
   ],
   "outputSchema": {
     "fields": [
-      {"name": "dept",           "type": "STRING"},
-      {"name": "total_salary",   "type": "DECIMAL"},
-      {"name": "employee_count", "type": "LONG"},
-      {"name": "avg_salary",     "type": "DECIMAL"}
+      {"name": "dept", "type": "STRING"}, {"name": "total_salary", "type": "DECIMAL"},
+      {"name": "employee_count", "type": "LONG"}, {"name": "avg_salary", "type": "DECIMAL"}
     ]
   },
-  "output": {
-    "enabled": true,
-    "threshold": 0,
-    "storage": {
-      "type": "csv",
-      "table": "data/salary_stats.csv"
-    }
-  }
+  "output": {"enabled": true, "threshold": 0, "storage": {"type": "csv", "table": "data/salary_stats.csv"}}
 }
