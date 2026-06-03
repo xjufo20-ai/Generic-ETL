@@ -7,26 +7,35 @@
   "datasource": {
     "type": "mysql",
     "connection": {
-      "url": "jdbc:mysql://{{env:DB_HOST}}:3306/company",
-      "username": "{{env:DB_USER}}",
+      "url": "jdbc:mysql://{{env:DB_HOST:localhost}}:3306/{{env:DB_NAME:company}}",
+      "username": "{{env:DB_USER:etl}}",
       "password": "{{env:DB_PASS}}"
     },
-    "query": "SELECT id, name, dept, salary, hire_date FROM employees"
+    "query": "SELECT emp_id, emp_name, dept_code, salary_amt, hire_dt FROM employees"
   },
   "watermark": {
-    "column": "hire_date",
+    "column": "hire_dt",
     "initial": "2020-01-01"
   },
   "inputSchema": {
     "fields": [
-      {"name": "id", "type": "LONG"},
-      {"name": "name", "type": "STRING"},
-      {"name": "dept", "type": "STRING"},
-      {"name": "salary", "type": "DECIMAL"},
-      {"name": "hire_date", "type": "DATE"}
+      {"name": "emp_id",     "type": "LONG"},
+      {"name": "emp_name",   "type": "STRING"},
+      {"name": "dept_code",  "type": "STRING"},
+      {"name": "salary_amt", "type": "DECIMAL"},
+      {"name": "hire_dt",    "type": "DATE"}
     ]
   },
   "transforms": [
+    {
+      "type": "project",
+      "mappings": [
+        {"from": "emp_id",     "to": "id"},
+        {"from": "emp_name",   "to": "name"},
+        {"from": "dept_code",  "to": "dept"},
+        {"from": "salary_amt", "to": "salary"}
+      ]
+    },
     {
       "type": "filter",
       "expression": "salary > 5000"
@@ -36,11 +45,19 @@
       "groupBy": ["dept"],
       "aggregations": [
         {"field": "salary", "function": "SUM", "alias": "total_salary"},
-        {"field": "id", "function": "COUNT", "alias": "employee_count"},
+        {"field": "id",     "function": "COUNT", "alias": "employee_count"},
         {"field": "salary", "function": "AVG", "alias": "avg_salary"}
       ]
     }
   ],
+  "outputSchema": {
+    "fields": [
+      {"name": "dept",           "type": "STRING"},
+      {"name": "total_salary",   "type": "DECIMAL"},
+      {"name": "employee_count", "type": "LONG"},
+      {"name": "avg_salary",     "type": "DECIMAL"}
+    ]
+  },
   "output": {
     "enabled": true,
     "threshold": 0,

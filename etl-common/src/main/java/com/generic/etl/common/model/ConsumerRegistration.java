@@ -17,14 +17,14 @@ public class ConsumerRegistration {
     @Data
     public static class Subscription {
         private String pipeline;
-        private SchemaConfig outputSchema;
-        private String filter;
+        private List<String> fields;        // desired output fields
+        private String filter;              // optional: MVEL expression
         private DeliveryConfig delivery;
     }
 
     @Data
     public static class DeliveryConfig {
-        private String mode; // PULL, PUSH
+        private String mode = "PULL";       // PULL | PUSH
         private int batchSize = 200;
     }
 }

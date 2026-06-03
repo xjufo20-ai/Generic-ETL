@@ -4,14 +4,10 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.generic.etl.api.metrics.EtlMetrics;
 import com.generic.etl.api.store.AuditLog;
 import com.generic.etl.api.store.LineageStore;
 import com.generic.etl.api.store.StateStore;
-import com.generic.etl.core.config.PipelineConfigParser;
 import com.generic.etl.core.transform.CamelDeadLetterHandler;
-import com.generic.etl.load.LoadRouter;
-import org.apache.camel.CamelContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.TaskScheduler;
@@ -22,8 +18,7 @@ import java.nio.file.Path;
 @Configuration
 public class EtlConfig {
 
-    @Bean
-    public ObjectMapper objectMapper() {
+    @Bean public ObjectMapper objectMapper() {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -31,29 +26,13 @@ public class EtlConfig {
         return mapper;
     }
 
-    @Bean public PipelineConfigParser pipelineConfigParser(ObjectMapper mapper) { return new PipelineConfigParser(mapper); }
     @Bean public AuditLog auditLog(ObjectMapper mapper) { return new AuditLog(Path.of("data"), mapper); }
     @Bean public LineageStore lineageStore(ObjectMapper mapper) { return new LineageStore(Path.of("data"), mapper); }
     @Bean public StateStore stateStore(ObjectMapper mapper, AuditLog auditLog) { return new StateStore(Path.of("data"), mapper, auditLog); }
     @Bean public CamelDeadLetterHandler camelDeadLetterHandler() { return new CamelDeadLetterHandler(); }
 
-    @Bean
-    public TaskScheduler taskScheduler() {
-        ThreadPoolTaskScheduler s = new ThreadPoolTaskScheduler();
-        s.setPoolSize(4); s.setThreadNamePrefix("etl-"); s.initialize();
+    @Bean public TaskScheduler taskScheduler() {
+        ThreadPoolTaskScheduler s = new ThreadPoolTaskScheduler(); s.setPoolSize(4); s.setThreadNamePrefix("etl-"); s.initialize();
         return s;
-    }
-
-    @Bean
-    public CamelRouteFactory camelRouteFactory(CamelContext camelContext, PipelineConfigParser configParser,
-                                                EtlMetrics metrics, AuditLog auditLog, LineageStore lineageStore,
-                                                LoadRouter loadRouter) {
-        return new CamelRouteFactory(camelContext, configParser, metrics, auditLog, lineageStore, loadRouter);
-    }
-
-    @Bean
-    public PipelineScheduler pipelineScheduler(TaskScheduler taskScheduler, CamelRouteFactory routeFactory,
-                                                PipelineConfigParser configParser, StateStore store) {
-        return new PipelineScheduler(taskScheduler, routeFactory, configParser, store);
     }
 }

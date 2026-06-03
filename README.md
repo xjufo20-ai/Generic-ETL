@@ -52,6 +52,45 @@ Camel 提供声明式错误处理 (`onException`)、自动重试、JMX 监控。
 | `etl-load` | 加载层：PersistHandler, ConsumerDispatch, ConsumerRegistry |
 | `etl-api` | Web 层：REST API, Dashboard, Security, Metrics, CamelRouteFactory |
 
+## Camel 原生 YAML DSL
+
+Pipeline 配置可以直接用 Camel YAML DSL，**零 Java 解析**——Camel 原生理解并加载：
+
+```bash
+# 将 YAML 放入 config/routes/，启动时自动加载
+cp my-pipeline.yaml config/routes/
+./gradlew :etl-api:bootRun
+# → Camel 原生加载 YAML → Route 自动注册
+```
+
+示例 `config/routes/salary-stats.yaml`：
+
+```yaml
+- route:
+    id: salary-stats
+    from:
+      uri: jdbc:etlDataSource
+      parameters:
+        query: >
+          SELECT emp_id, emp_name, dept_code, salary_amt, hire_dt
+          FROM employees WHERE hire_dt >= '2020-01-01'
+    steps:
+      - bean:
+          ref: projectTransformer          # 列映射
+          parameters: {mappings: {emp_id: id, emp_name: name, dept_code: dept, salary_amt: salary}}
+      - filter:
+          simple: "${body[salary]} > 5000"
+      - bean:
+          ref: etlAggregator               # 分组聚合
+          parameters: {groupBy: dept, aggregations: [{field: salary, function: SUM, alias: total_salary}]}
+      - multicast:
+          steps:
+            - to: bean:loadRouter
+            - to: {uri: file:data, parameters: {fileName: salary_stats.csv}}
+```
+
+> **关键区别**：JSON 需要 `PipelineConfigParser` 解析后再构建 Route；YAML 被 Camel 原生理解，**Parser 不需要参与 Route 构建**。
+
 ## 快速开始
 
 ```bash
@@ -177,7 +216,16 @@ Sales,750000.00,10,75000.00
 | `cron` | Spring TaskScheduler | 定时调度，Cron 表达式 |
 | `{{env:VAR}}` | 环境变量注入 | 密码不写明文 |
 
-## Pipeline JSON 配置
+
+### 环境变量注入
+
+YAML 和 JSON 都支持 `{{env:VAR}}` 和 `{{env:VAR:default}}`：
+
+```yaml
+uri: jdbc:mysql://{{env:DB_HOST:localhost}}:3306/{{env:DB_NAME:company}}
+```
+
+## Pipeline JSON 配置（兼容旧格式）
 
 ```jsonc
 {
@@ -230,6 +278,30 @@ Sales,750000.00,10,75000.00
 | `aggregate` | 分组聚合 | `.aggregate(strategy)` |
 | `join` | 关联查询 | `.enrich(jdbc:...)` |
 | `split` | 数据拆分 | `.split(body())` |
+
+
+### 数据输出
+
+`output.storage` 支持 insert 和 upsert 两种模式：
+
+```jsonc
+"output": {
+  "enabled": true,
+  "threshold": 1000,
+  "storage": {
+    "type": "postgresql",
+    "table": "etl.salary_stats",
+    "primaryKeys": ["dept"],        // upsert 依据
+    "mode": "upsert"                 // insert | upsert
+  }
+}
+```
+
+| mode | 行为 | 适用场景 |
+|------|------|----------|
+| `insert` (默认) | 追加写入 | 全量抽取、日志类数据 |
+| `upsert` | INSERT ON CONFLICT DO UPDATE | 增量抽取、聚合结果更新 |
+
 
 ## API 端点
 

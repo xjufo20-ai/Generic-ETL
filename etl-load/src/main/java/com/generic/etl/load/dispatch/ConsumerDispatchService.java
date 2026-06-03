@@ -2,7 +2,6 @@ package com.generic.etl.load.dispatch;
 
 import com.generic.etl.common.model.ConsumerRegistration;
 import com.generic.etl.common.model.Row;
-import com.generic.etl.common.model.SchemaConfig;
 import com.generic.etl.core.expression.ExpressionEvaluator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.client.RestTemplate;
@@ -19,9 +18,7 @@ public class ConsumerDispatchService {
                 if (!sub.getPipeline().equals(pipelineName)) continue;
                 List<Map<String, Object>> output = projectAndFilter(rows, sub);
                 if (output.isEmpty()) continue;
-
-                String mode = sub.getDelivery() != null ? sub.getDelivery().getMode() : "PULL";
-                if ("PUSH".equalsIgnoreCase(mode)) {
+                if ("PUSH".equalsIgnoreCase(sub.getDelivery() != null ? sub.getDelivery().getMode() : "PULL")) {
                     pushToConsumer(reg.getConsumer().getEndpoint(), output, reg.getConsumer().getName());
                 }
             }
@@ -29,14 +26,18 @@ public class ConsumerDispatchService {
     }
 
     public List<Map<String, Object>> projectAndFilter(List<Row> rows, ConsumerRegistration.Subscription sub) {
-        List<String> fields = sub.getOutputSchema().getFields().stream().map(SchemaConfig.FieldDef::getName).toList();
+        List<String> fields = sub.getFields() != null ? sub.getFields() : List.of();
         List<Map<String, Object>> result = new ArrayList<>();
         for (Row row : rows) {
             if (sub.getFilter() != null && !sub.getFilter().isBlank()) {
-                if (!ExpressionEvaluator.evaluate(row, sub.getFilter())) continue;
+                if (!ExpressionEvaluator.evaluateMap(row.getValues(), sub.getFilter())) continue;
             }
             Map<String, Object> projected = new LinkedHashMap<>();
-            for (String field : fields) projected.put(field, row.get(field));
+            if (fields.isEmpty()) {
+                projected.putAll(row.getValues());
+            } else {
+                for (String field : fields) projected.put(field, row.get(field));
+            }
             result.add(projected);
         }
         return result;
@@ -45,9 +46,9 @@ public class ConsumerDispatchService {
     private void pushToConsumer(String endpoint, List<Map<String, Object>> data, String consumerName) {
         try {
             restTemplate.postForObject(endpoint, data, String.class);
-            log.info("Pushed {} rows to consumer '{}' at {}", data.size(), consumerName, endpoint);
+            log.info("Pushed {} rows to consumer '{}'", data.size(), consumerName);
         } catch (Exception e) {
-            log.error("Failed to push to consumer '{}' at {}", consumerName, endpoint, e);
+            log.error("Push failed to consumer '{}'", consumerName, e);
         }
     }
 }

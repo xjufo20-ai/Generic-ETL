@@ -1,14 +1,12 @@
 package com.generic.etl.api.controller;
 
-import com.generic.etl.api.config.CamelRouteFactory;
-import com.generic.etl.api.config.PipelineScheduler;
+import com.generic.etl.api.config.EtlYamlRouteLoader;
 import com.generic.etl.api.security.Roles;
 import com.generic.etl.api.store.AuditLog;
 import com.generic.etl.api.store.LineageStore;
 import com.generic.etl.api.store.StateStore;
 import com.generic.etl.common.dto.ApiResponse;
-import com.generic.etl.common.model.PipelineConfig;
-import com.generic.etl.core.config.PipelineConfigParser;
+import org.apache.camel.CamelContext;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,92 +15,76 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/pipelines")
 public class PipelineController {
-    private final CamelRouteFactory routeFactory;
-    private final PipelineScheduler scheduler;
+    private final CamelContext camelContext;
     private final StateStore store;
     private final LineageStore lineageStore;
     private final AuditLog auditLog;
-    private final PipelineConfigParser configParser;
 
-    public PipelineController(CamelRouteFactory routeFactory, PipelineScheduler scheduler,
-                               StateStore store, AuditLog auditLog, LineageStore lineageStore,
-                               PipelineConfigParser configParser) {
-        this.routeFactory = routeFactory;
-        this.scheduler = scheduler;
+    public PipelineController(CamelContext camelContext, StateStore store,
+                               AuditLog auditLog, LineageStore lineageStore) {
+        this.camelContext = camelContext;
         this.store = store;
         this.auditLog = auditLog;
         this.lineageStore = lineageStore;
-        this.configParser = configParser;
     }
 
-    // ── Register / Unregister ────────────────────────────────
+    // ── YAML Route Management ────────────────────────────────
 
-    @PostMapping("/register")
+    @PostMapping("/yaml/load")
     @PreAuthorize(Roles.IS_ADMIN)
-    public ApiResponse<String> register(@RequestBody String pipelineJson) {
+    public ApiResponse<String> loadYaml(@RequestBody String yaml) {
         try {
-            scheduler.register(pipelineJson);
-            return ApiResponse.ok("Pipeline registered");
+            String resolved = EtlYamlRouteLoader.resolveEnv(yaml);
+            camelContext.getCamelContextExtension()
+                .getContextPlugin(org.apache.camel.spi.RoutesLoader.class)
+                .loadRoutes(camelContext, new org.apache.camel.spi.Resource() {
+                    @Override public String getLocation() { return "inline"; }
+                    @Override public java.io.InputStream getInputStream() {
+                        return new java.io.ByteArrayInputStream(resolved.getBytes());
+                    }
+                });
+            return ApiResponse.ok("YAML route loaded");
         } catch (Exception e) {
             return ApiResponse.error(e.getMessage());
         }
-    }
-
-    @DeleteMapping("/{name}")
-    @PreAuthorize(Roles.IS_ADMIN)
-    public ApiResponse<String> unregister(@PathVariable String name) {
-        scheduler.unregister(name);
-        return ApiResponse.ok("Pipeline '" + name + "' unregistered");
-    }
-
-    // ── Execute ───────────────────────────────────────────────
-
-    @PostMapping("/execute")
-    @PreAuthorize(Roles.IS_ADMIN_OR_OPERATOR)
-    public ApiResponse<String> execute(@RequestBody String pipelineJson) {
-        try {
-            PipelineConfig config = configParser.parseFromString(pipelineJson);
-            String name = config.getPipeline().getName();
-            // Register if not already, then trigger
-            if (!routeFactory.isRegistered(name)) routeFactory.register(config);
-            routeFactory.execute(name);
-            return ApiResponse.ok("Executed: " + name);
-        } catch (Exception e) {
-            return ApiResponse.error(e.getMessage());
-        }
-    }
-
-    @PostMapping("/{name}/execute")
-    @PreAuthorize(Roles.IS_ADMIN_OR_OPERATOR)
-    public ApiResponse<String> executeByName(@PathVariable String name) {
-        try {
-            routeFactory.execute(name);
-            return ApiResponse.ok("Executed: " + name);
-        } catch (Exception e) {
-            return ApiResponse.error(e.getMessage());
-        }
-    }
-
-    // ── Query ─────────────────────────────────────────────────
-
-    @GetMapping
-    @PreAuthorize(Roles.IS_AUTHENTICATED)
-    public ApiResponse<List<String>> listPipelines() {
-        return ApiResponse.ok(store.getAllPipelines().keySet().stream().sorted().toList());
     }
 
     @GetMapping("/routes")
     @PreAuthorize(Roles.IS_AUTHENTICATED)
-    public ApiResponse<Set<String>> listRoutes() {
-        return ApiResponse.ok(routeFactory.getRegisteredPipelines());
+    public ApiResponse<List<String>> listRoutes() {
+        return ApiResponse.ok(camelContext.getRoutes().stream()
+                .map(r -> r.getRouteId()).sorted().toList());
     }
 
-    @GetMapping("/{name}")
+    @DeleteMapping("/routes/{routeId}")
+    @PreAuthorize(Roles.IS_ADMIN)
+    public ApiResponse<String> removeRoute(@PathVariable String routeId) {
+        try {
+            camelContext.getRouteController().stopRoute(routeId);
+            camelContext.removeRoute(routeId);
+            return ApiResponse.ok("Route removed: " + routeId);
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    // ── Pipeline Registry ────────────────────────────────────
+
+    @PostMapping("/register")
+    @PreAuthorize(Roles.IS_ADMIN)
+    public ApiResponse<String> register(@RequestBody Map<String, Object> pipeline) {
+        String name = (String) pipeline.get("name");
+        if (name == null) return ApiResponse.error("name is required");
+        store.putPipeline(name, new com.fasterxml.jackson.databind.ObjectMapper()
+                .writeValueAsString(pipeline));
+        auditLog.recordChange(name, "REGISTER", "api");
+        return ApiResponse.ok("Registered: " + name);
+    }
+
+    @GetMapping
     @PreAuthorize(Roles.IS_AUTHENTICATED)
-    public ApiResponse<String> getPipeline(@PathVariable String name) {
-        String json = store.getPipeline(name);
-        if (json == null) return ApiResponse.error("Not found: " + name);
-        return ApiResponse.ok(json);
+    public ApiResponse<Map<String, String>> listPipelines() {
+        return ApiResponse.ok(store.getAllPipelines());
     }
 
     @GetMapping("/{name}/audit")
@@ -114,11 +96,10 @@ public class PipelineController {
     @GetMapping("/lineage")
     @PreAuthorize(Roles.IS_AUTHENTICATED)
     public ApiResponse<List<Map<String,Object>>> getLineage(@RequestParam(required=false) String pipeline) {
-        List<LineageStore.LineageEntry> entries = pipeline != null ? lineageStore.getByPipeline(pipeline) : lineageStore.getAll();
+        var entries = pipeline != null ? lineageStore.getByPipeline(pipeline) : lineageStore.getAll();
         return ApiResponse.ok(entries.stream().map(e -> Map.<String,Object>of(
             "pipeline",e.pipeline(),"outputTable",e.outputTable(),
-            "consumer",e.consumer(),"rows",e.rows(),
-            "status",e.status(),"timestamp",e.timestamp()
+            "consumer",e.consumer(),"rows",e.rows(),"status",e.status(),"timestamp",e.timestamp()
         )).toList());
     }
 }

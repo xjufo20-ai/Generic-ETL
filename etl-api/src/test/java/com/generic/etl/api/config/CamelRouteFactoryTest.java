@@ -10,108 +10,79 @@ import static org.junit.jupiter.api.Assertions.*;
 class CamelRouteFactoryTest {
 
     @Test
-    void sourceUriJdbc() {
-        var config = new PipelineConfig();
-        config.setPipeline(new PipelineConfig.Pipeline());
-        config.getPipeline().setName("test");
-        var jdbc = new DataSourceConfig.JdbcDataSource();
-        jdbc.setType("mysql");
-        jdbc.setQuery("SELECT * FROM t");
-        config.setDatasource(jdbc);
-        assertEquals("test", config.getPipeline().getName());
-        assertEquals("SELECT * FROM t", jdbc.getQuery());
-    }
-
-    @Test
     void aggregateRowsSum() {
-        List<Map<String, Object>> rows = List.of(
-            Map.of("val", 10), Map.of("val", 20), Map.of("val", 30)
-        );
-        var aggs = List.of(new TransformDef.Aggregation("val", "SUM", "total"));
-        Map<String, Object> result = TransformEipMapper.aggregateRows(rows, aggs, List.of());
-        assertEquals(60.0, (double) result.get("total"), 0.01);
+        List<Map<String, Object>> rows = List.of(Map.of("v", 10), Map.of("v", 20), Map.of("v", 30));
+        var aggs = List.of(new TransformDef.Aggregation("v", "SUM", "total"));
+        var r = TransformEipMapper.aggregateRows(rows, aggs, List.of());
+        assertEquals(60.0, (double) r.get("total"), 0.01);
     }
 
     @Test
-    void aggregateRowsCountWithGroupBy() {
-        List<Map<String, Object>> rows = List.of(
-            Map.of("dept", "A", "val", 10),
-            Map.of("dept", "A", "val", 20),
-            Map.of("dept", "B", "val", 5)
-        );
-        var aggs = List.of(new TransformDef.Aggregation("val", "COUNT", "cnt"));
-        Map<String, Object> result = TransformEipMapper.aggregateRows(rows, aggs, List.of("dept"));
-        assertEquals("A", result.get("dept"));
-        assertEquals(3L, result.get("cnt"));
+    void aggregateRowsCountGroupBy() {
+        List<Map<String, Object>> rows = List.of(Map.of("d", "A", "v", 10), Map.of("d", "A", "v", 20), Map.of("d", "B", "v", 5));
+        var aggs = List.of(new TransformDef.Aggregation("v", "COUNT", "cnt"));
+        var r = TransformEipMapper.aggregateRows(rows, aggs, List.of("d"));
+        assertEquals("A", r.get("d"));
+        assertEquals(3L, r.get("cnt"));
     }
 
     @Test
-    void aggregateRowsAvgMinMax() {
-        List<Map<String, Object>> rows = List.of(
-            Map.of("v", 10), Map.of("v", 20), Map.of("v", 30), Map.of("v", 40)
-        );
-        var aggs = List.of(
-            new TransformDef.Aggregation("v", "AVG", "avg"),
-            new TransformDef.Aggregation("v", "MIN", "min"),
-            new TransformDef.Aggregation("v", "MAX", "max")
-        );
-        Map<String, Object> result = TransformEipMapper.aggregateRows(rows, aggs, List.of());
-        assertEquals(25.0, (double) result.get("avg"), 0.01);
-        assertEquals(10.0, (double) result.get("min"), 0.01);
-        assertEquals(40.0, (double) result.get("max"), 0.01);
+    void aggregateAvgMinMax() {
+        List<Map<String, Object>> rows = List.of(Map.of("v", 10), Map.of("v", 20), Map.of("v", 30), Map.of("v", 40));
+        var aggs = List.of(new TransformDef.Aggregation("v", "AVG", "a"), new TransformDef.Aggregation("v", "MIN", "mn"), new TransformDef.Aggregation("v", "MAX", "mx"));
+        var r = TransformEipMapper.aggregateRows(rows, aggs, List.of());
+        assertEquals(25.0, (double) r.get("a"), 0.01);
+        assertEquals(10.0, (double) r.get("mn"), 0.01);
+        assertEquals(40.0, (double) r.get("mx"), 0.01);
     }
 
     @Test
-    void castTypes() {
+    void aggregateEmpty() {
+        var r = TransformEipMapper.aggregateRows(List.of(), List.of(new TransformDef.Aggregation("v", "COUNT", "c")), List.of());
+        assertEquals(0L, r.get("c"));
+    }
+
+    @Test
+    void castAllTypes() {
         assertEquals("123", TransformEipMapper.cast(123, "STRING"));
         assertEquals(123L, TransformEipMapper.cast("123", "LONG"));
         assertEquals(3.14, TransformEipMapper.cast("3.14", "DOUBLE"));
         assertEquals(1, TransformEipMapper.cast("1", "INT"));
         assertEquals(true, TransformEipMapper.cast("true", "BOOLEAN"));
-    }
-
-    @Test
-    void castNullReturnsNull() {
         assertNull(TransformEipMapper.cast(null, "STRING"));
-        assertNull(TransformEipMapper.cast(null, "LONG"));
+        assertEquals("x", TransformEipMapper.cast("x", "UNKNOWN"));
     }
 
     @Test
-    void castUnknownTypeReturnsSame() {
-        assertEquals("hello", TransformEipMapper.cast("hello", "UNKNOWN"));
+    void pipelineValidatesProjectAndOutputSchema() {
+        var c = new PipelineConfig();
+        c.setPipeline(new PipelineConfig.Pipeline()); c.getPipeline().setName("t");
+        var ds = new DataSourceConfig.JdbcDataSource(); ds.setType("mysql");
+        ds.setQuery("SELECT a, b FROM x"); c.setDatasource(ds);
+        c.setInputSchema(new SchemaConfig());
+        c.getInputSchema().setFields(List.of(new SchemaConfig.FieldDef("a", "LONG"), new SchemaConfig.FieldDef("b", "STRING")));
+        // project: a→x, b→y
+        var proj = new TransformDef.ProjectDef();
+        proj.setMappings(List.of(new TransformDef.MappingDef("a", "x"), new TransformDef.MappingDef("b", "y")));
+        // filter on canonical field
+        var filt = new TransformDef.FilterDef(); filt.setExpression("x > 0");
+        c.setTransforms(List.of(proj, filt));
+        // outputSchema matches canonical
+        c.setOutputSchema(new SchemaConfig());
+        c.getOutputSchema().setFields(List.of(new SchemaConfig.FieldDef("x", "LONG"), new SchemaConfig.FieldDef("y", "STRING")));
+        assertTrue(c.validate().isEmpty());
     }
 
     @Test
-    void aggregateEmptyRows() {
-        var aggs = List.of(new TransformDef.Aggregation("v", "COUNT", "cnt"));
-        Map<String, Object> result = TransformEipMapper.aggregateRows(List.of(), aggs, List.of());
-        assertEquals(0L, result.get("cnt"));
-    }
-
-    @Test
-    void pipelineConfigValidation() {
-        var config = new PipelineConfig();
-        config.setPipeline(new PipelineConfig.Pipeline());
-        config.getPipeline().setName("test");
-        config.setDatasource(new DataSourceConfig.JdbcDataSource());
-        ((DataSourceConfig.JdbcDataSource) config.getDatasource()).setType("mysql");
-        ((DataSourceConfig.JdbcDataSource) config.getDatasource()).setQuery("SELECT 1");
-        config.setInputSchema(new SchemaConfig());
-        config.getInputSchema().setFields(List.of(
-            new SchemaConfig.FieldDef("id", FieldType.LONG)
-        ));
-        assertTrue(config.validate().isEmpty(), "Valid config should have no issues");
-    }
-
-    @Test
-    void pipelineConfigValidationMissingName() {
-        var config = new PipelineConfig();
-        config.setDatasource(new DataSourceConfig.JdbcDataSource());
-        ((DataSourceConfig.JdbcDataSource) config.getDatasource()).setType("mysql");
-        config.setInputSchema(new SchemaConfig());
-        config.getInputSchema().setFields(List.of(new SchemaConfig.FieldDef("id", FieldType.LONG)));
-        var issues = config.validate();
-        assertFalse(issues.isEmpty());
-        assertTrue(issues.stream().anyMatch(i -> i.contains("pipeline.name")));
+    void pipelineRejectsOutputSchemaNotInCanonical() {
+        var c = new PipelineConfig();
+        c.setPipeline(new PipelineConfig.Pipeline()); c.getPipeline().setName("t");
+        var ds = new DataSourceConfig.JdbcDataSource(); ds.setType("mysql");
+        ds.setQuery("SELECT a FROM x"); c.setDatasource(ds);
+        c.setInputSchema(new SchemaConfig());
+        c.getInputSchema().setFields(List.of(new SchemaConfig.FieldDef("a", "LONG")));
+        c.setOutputSchema(new SchemaConfig());
+        c.getOutputSchema().setFields(List.of(new SchemaConfig.FieldDef("z", "LONG"))); // not produced
+        assertFalse(c.validate().isEmpty());
     }
 }

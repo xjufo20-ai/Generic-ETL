@@ -19,7 +19,8 @@ dependencies {
     implementation "org.apache.camel:camel-kafka:${camelVersion}"
     implementation "org.apache.camel:camel-ftp:${camelVersion}"
     implementation "org.apache.camel:camel-management:${camelVersion}"
-    // Hawtio Monitoring Console
+    implementation "org.apache.camel:camel-yaml-dsl:${camelVersion}"
+    // Hawtio
     implementation 'io.hawt:hawtio-springboot:4.2.0'
     implementation 'org.jolokia:jolokia-core:2.0.3'
     runtimeOnly 'org.postgresql:postgresql:42.7.4'

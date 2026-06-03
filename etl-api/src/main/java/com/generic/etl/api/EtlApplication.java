@@ -22,9 +22,6 @@ public class EtlApplication {
         SpringApplication.run(EtlApplication.class, args);
     }
 
-    /** Evict expired PULL cache entries every 60 seconds. */
     @Scheduled(fixedRate = 60000)
-    public void evictExpiredCache() {
-        inMemoryDataStore.evictExpired();
-    }
+    public void evictExpiredCache() { inMemoryDataStore.evictExpired(); }
 }

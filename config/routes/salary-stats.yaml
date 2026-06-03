@@ -1,0 +1,56 @@
+# ============================================================
+# Generic-ETL Pipeline: Salary Statistics
+# ============================================================
+# Copy this template and adapt for your own pipeline.
+# Place in config/routes/ — auto-loaded at startup.
+#
+# Consumer subscribes to "salary-stats" with desired fields:
+#   POST /api/consumers/register
+#   {"consumer":{"name":"my-dashboard"},"subscriptions":[{
+#     "pipeline":"salary-stats",
+#     "fields": ["dept", "total_salary", "employee_count"],
+#     "delivery": {"mode": "PULL"}
+#   }]}
+# ============================================================
+
+- route:
+    id: salary-stats
+    from:
+      uri: jdbc:etlDataSource
+      parameters:
+        query: >
+          SELECT emp_id, emp_name, dept_code, salary_amt, hire_dt
+          FROM employees WHERE hire_dt >= '2020-01-01'
+
+    steps:
+      # 1) Project: map source columns → canonical names
+      - bean:
+          ref: projectTransformer
+          parameters:
+            mappings: {emp_id: id, emp_name: name, dept_code: dept, salary_amt: salary}
+
+      # 2) Filter: only high-salary employees
+      - filter:
+          simple: "${body[salary]} > 5000"
+
+      # 3) Aggregate: GROUP BY dept, SUM/COUNT/AVG salary
+      - bean:
+          ref: etlAggregator
+          parameters:
+            groupBy: dept
+            aggregations:
+              - {field: salary, function: SUM, alias: total_salary}
+              - {field: id, function: COUNT, alias: employee_count}
+              - {field: salary, function: AVG, alias: avg_salary}
+
+      # 4) Output: dispatch to consumers + write CSV
+      - setProperty:
+          name: pipelineName
+          constant: salary-stats
+      - multicast:
+          steps:
+            - to: bean:loadRouter
+            - to:
+                uri: file:data
+                parameters:
+                  fileName: salary_stats.csv
