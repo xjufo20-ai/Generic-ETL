@@ -2,7 +2,5 @@ rootProject.name = 'generic-etl'
 
 include 'etl-common'
 include 'etl-core'
-include 'etl-extract'
-include 'etl-transform'
 include 'etl-load'
 include 'etl-api'

@@ -1,0 +1,52 @@
+{
+  "pipeline": {
+    "name": "salary-stats",
+    "version": "1.0",
+    "cron": "0 0 8 * * ?"
+  },
+  "datasource": {
+    "type": "mysql",
+    "connection": {
+      "url": "jdbc:mysql://{{env:DB_HOST}}:3306/company",
+      "username": "{{env:DB_USER}}",
+      "password": "{{env:DB_PASS}}"
+    },
+    "query": "SELECT id, name, dept, salary, hire_date FROM employees"
+  },
+  "watermark": {
+    "column": "hire_date",
+    "initial": "2020-01-01"
+  },
+  "inputSchema": {
+    "fields": [
+      {"name": "id", "type": "LONG"},
+      {"name": "name", "type": "STRING"},
+      {"name": "dept", "type": "STRING"},
+      {"name": "salary", "type": "DECIMAL"},
+      {"name": "hire_date", "type": "DATE"}
+    ]
+  },
+  "transforms": [
+    {
+      "type": "filter",
+      "expression": "salary > 5000"
+    },
+    {
+      "type": "aggregate",
+      "groupBy": ["dept"],
+      "aggregations": [
+        {"field": "salary", "function": "SUM", "alias": "total_salary"},
+        {"field": "id", "function": "COUNT", "alias": "employee_count"},
+        {"field": "salary", "function": "AVG", "alias": "avg_salary"}
+      ]
+    }
+  ],
+  "output": {
+    "enabled": true,
+    "threshold": 0,
+    "storage": {
+      "type": "csv",
+      "table": "data/salary_stats.csv"
+    }
+  }
+}

@@ -79,9 +79,29 @@ public class CamelRouteFactory {
                     else if (!(b instanceof List)) e.getIn().setBody(List.of());
                 })
 
-                // Load: multicast to persist + dispatch
+                // Load: multicast to persist + dispatch (+ CSV if configured)
                 .multicast().parallelProcessing()
                     .to("bean:loadRouter?method=route")
+                    .process(e -> {
+                        var out = config.getOutput();
+                        if (out != null && out.getStorage() != null && "csv".equalsIgnoreCase(out.getStorage().getType())) {
+                            String path = out.getStorage().getTable();
+                            @SuppressWarnings("unchecked")
+                            List<Map<String, Object>> rows = e.getIn().getBody(List.class);
+                            if (rows != null && !rows.isEmpty()) {
+                                var keys = rows.get(0).keySet();
+                                var sb = new StringBuilder();
+                                sb.append(String.join(",", keys)).append("
+");
+                                for (var row : rows) {
+                                    sb.append(keys.stream().map(k -> String.valueOf(row.get(k))).collect(java.util.stream.Collectors.joining(","))).append("
+");
+                                }
+                                try { java.nio.file.Files.writeString(java.nio.file.Path.of(path), sb.toString()); }
+                                catch (java.io.IOException ex) { throw new RuntimeException(ex); }
+                            }
+                        }
+                    })
                 .end()
 
                 // Metrics + Audit
