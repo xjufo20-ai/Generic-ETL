@@ -3,6 +3,7 @@ package com.generic.etl.common.model;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import java.util.List;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type", visible = true)
@@ -18,13 +19,13 @@ import java.util.List;
 @Data
 public abstract class TransformDef {
     protected String type;
-    @Data public static class ProjectDef extends TransformDef { private List<MappingDef> mappings; }
-    @Data public static class FilterDef extends TransformDef { private String expression; }
-    @Data public static class RenameDef extends TransformDef { private List<MappingDef> mappings; }
-    @Data public static class TypeCastDef extends TransformDef { private List<TypeCastMapping> mappings; }
-    @Data public static class AggregateDef extends TransformDef { private List<String> groupBy; private List<Aggregation> aggregations; }
-    @Data public static class JoinDef extends TransformDef { private String query; private String leftKey; private String rightKey; }
-    @Data public static class SplitDef extends TransformDef { private String field; private String delimiter; }
+    @Data @EqualsAndHashCode(callSuper = false) public static class ProjectDef extends TransformDef { private List<MappingDef> mappings; }
+    @Data @EqualsAndHashCode(callSuper = false) public static class FilterDef extends TransformDef { private String expression; }
+    @Data @EqualsAndHashCode(callSuper = false) public static class RenameDef extends TransformDef { private List<MappingDef> mappings; }
+    @Data @EqualsAndHashCode(callSuper = false) public static class TypeCastDef extends TransformDef { private List<TypeCastMapping> mappings; }
+    @Data @EqualsAndHashCode(callSuper = false) public static class AggregateDef extends TransformDef { private List<String> groupBy; private List<Aggregation> aggregations; }
+    @Data @EqualsAndHashCode(callSuper = false) public static class JoinDef extends TransformDef { private String query; private String leftKey; private String rightKey; }
+    @Data @EqualsAndHashCode(callSuper = false) public static class SplitDef extends TransformDef { private String field; private String delimiter; }
     @Data public static class MappingDef { private String from; private String to; }
     @Data public static class TypeCastMapping { private String field; private String toType; }
     @Data public static class Aggregation { private String field; private String function; private String alias; }

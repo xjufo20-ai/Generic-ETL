@@ -20,9 +20,8 @@ dependencies {
     implementation "org.apache.camel:camel-ftp:${camelVersion}"
     implementation "org.apache.camel:camel-management:${camelVersion}"
     implementation "org.apache.camel:camel-yaml-dsl:${camelVersion}"
-    // Hawtio
+    // Hawtio (brings jolokia transitively)
     implementation 'io.hawt:hawtio-springboot:4.2.0'
-    implementation 'org.jolokia:jolokia-core:2.0.3'
     runtimeOnly 'org.postgresql:postgresql:42.7.4'
     runtimeOnly 'com.h2database:h2'
     testImplementation 'org.apache.camel:camel-test-spring-junit5:4.7.0'

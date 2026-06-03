@@ -11,12 +11,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,jolokia,hawtio
+        include: health,info,metrics,hawtio
   endpoint:
     health:
       show-details: always
-    jolokia:
-      enabled: true
 
 eureka:
   client:

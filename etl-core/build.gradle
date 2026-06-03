@@ -3,7 +3,7 @@ dependencies {
     implementation 'org.mvel:mvel2:2.5.2.Final'
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation "org.apache.camel:camel-core:${camelVersion}"
 
-    testImplementation project(':etl-transform')
     testImplementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 }

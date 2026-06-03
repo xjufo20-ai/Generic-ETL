@@ -67,9 +67,9 @@ public class EtlYamlRouteLoader {
     /** Load a YAML string as Camel routes. */
     public void loadYaml(String yaml, String location) {
         try {
-            camelContext.getCamelContextExtension()
-                .getContextPlugin(org.apache.camel.spi.RoutesLoader.class)
-                .loadRoutes(camelContext, resource(yaml, location));
+            var loader = camelContext.getCamelContextExtension()
+                .getContextPlugin(org.apache.camel.spi.RoutesLoader.class);
+            loader.loadRoutes(resource(yaml, location));
         } catch (Exception e) { log.error("Load failed: {}", location, e); }
     }
 
@@ -89,6 +89,8 @@ public class EtlYamlRouteLoader {
         return new org.apache.camel.spi.Resource() {
             @Override public String getLocation() { return loc; }
             @Override public InputStream getInputStream() { return new ByteArrayInputStream(content.getBytes()); }
+            @Override public boolean exists() { return true; }
+            @Override public String getScheme() { return "inline"; }
         };
     }
 }

@@ -9,6 +9,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
+import java.util.*;
+
 @Controller
 @RequestMapping("/dashboard")
 public class DashboardController {
@@ -28,12 +30,17 @@ public class DashboardController {
     @GetMapping
     public String index(Model model) {
         var pipelines = store.getAllPipelines().keySet().stream().sorted().toList();
+        var lineage = lineageStore.getAll();
+        var recentRuns = auditLog.getHistory().stream().limit(20).toList();
+
         model.addAttribute("pipelines", pipelines);
         model.addAttribute("routes", camelContext.getRoutes().stream().map(r -> r.getRouteId()).toList());
-        model.addAttribute("lineage", lineageStore.getAll());
+        model.addAttribute("lineage", lineage);
         model.addAttribute("pipelineCount", pipelines.size());
         model.addAttribute("routeCount", camelContext.getRoutes().size());
-        model.addAttribute("recentAudit", auditLog.getHistory().stream().limit(20).toList());
+        model.addAttribute("runCount", auditLog.getHistory().size());
+        model.addAttribute("recentRuns", recentRuns);
+        model.addAttribute("recentAudit", recentRuns);
         return "dashboard";
     }
 }

@@ -48,23 +48,22 @@
             </div>
         </div>
 
-        <!-- Recent Runs -->
+        <!-- Recent Audit -->
         <div class="section">
-            <h2>🕐 Recent Runs</h2>
-            <table th:if="${recentRuns != null && !recentRuns.empty}">
-                <thead><tr><th>ID</th><th>Pipeline</th><th>Status</th><th>Rows</th><th>Duration</th><th>Time</th></tr></thead>
+            <h2>🕐 Recent Activity</h2>
+            <table th:if="${recentAudit != null && !recentAudit.empty}">
+                <thead><tr><th>Pipeline</th><th>Action</th><th>Status</th><th>Rows</th><th>Time</th></tr></thead>
                 <tbody>
-                    <tr th:each="r : ${recentRuns}">
-                        <td th:text="${r.id}">1</td>
-                        <td th:text="${r.pipelineName}">etl</td>
+                    <tr th:each="r : ${recentAudit}">
+                        <td th:text="${r.pipeline}">-</td>
+                        <td th:text="${r.action}">-</td>
                         <td><span th:class="'badge badge-' + (${r.status} == 'SUCCESS' ? 'success' : (${r.status} == 'FAILED' ? 'failed' : 'running'))" th:text="${r.status}">OK</span></td>
-                        <td th:text="${r.rowCount}">0</td>
-                        <td th:text="${r.durationMs + 'ms'}">0ms</td>
-                        <td th:text="${r.startTime}">-</td>
+                        <td th:text="${r.rows}">0</td>
+                        <td th:text="${r.timestamp}">-</td>
                     </tr>
                 </tbody>
             </table>
-            <div th:if="${recentRuns == null || recentRuns.empty}" class="empty">No runs yet</div>
+            <div th:if="${recentAudit == null || recentAudit.empty}" class="empty">No activity yet</div>
         </div>
 
         <!-- Lineage -->
