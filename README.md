@@ -1,11 +1,11 @@
 # Generic-ETL
 
-[![Java](https://img.shields.io/badge/Java-22-blue)](https://adoptium.net/)
+[![Java](https://img.shields.io/badge/Java-21-blue)](https://adoptium.net/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.5-green)](https://spring.io/projects/spring-boot)
-[![Apache Camel](https://img.shields.io/badge/Camel-4.7.0-orange)](https://camel.apache.org/)
+[![Apache Camel](https://img.shields.io/badge/Camel-4.8.0-orange)](https://camel.apache.org/)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
-JSON 或 YAML 配置驱动的 ETL 引擎，基于 **Spring Boot 3.3 + Apache Camel 4.7**。
+JSON 或 YAML 配置驱动的 ETL 引擎，基于 **Spring Boot 3.3 + Apache Camel 4.8**。
 一条 Pipeline 配置 → 一条 Camel Route，利用 Camel 原生 EIP（Filter、Aggregate、Split、Multicast）处理数据流。
 
 ---
@@ -57,7 +57,7 @@ JSON 或 YAML 配置驱动的 ETL 引擎，基于 **Spring Boot 3.3 + Apache Cam
 
 ### 前置条件
 
-- Java 22+
+- Java 21+
 - Docker (可选，用于 PostgreSQL)
 
 ### 启动
