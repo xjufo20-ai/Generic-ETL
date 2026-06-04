@@ -42,7 +42,7 @@ public class PipelineController {
             List<String> issues = validator.validate(config);
             if (!issues.isEmpty()) return ApiResponse.error("Validation failed: " + String.join("; ", issues));
             String yaml = JsonToYamlCompiler.compile(config);
-            yamlLoader.loadYaml(yaml, config.getPipeline().getName());
+            yamlLoader.loadYaml(yaml, config.getPipeline().getName() + ".yaml");
             store.putPipeline(config.getPipeline().getName(), pipelineJson);
             auditLog.recordChange(config.getPipeline().getName(), "REGISTER", "api");
             return ApiResponse.ok("Registered: " + config.getPipeline().getName());
@@ -55,7 +55,7 @@ public class PipelineController {
     @PreAuthorize(Roles.IS_ADMIN)
     public ApiResponse<String> loadYaml(@RequestBody String yaml) {
         try {
-            yamlLoader.loadYaml(EtlYamlRouteLoader.resolveEnv(yaml), "inline");
+            yamlLoader.loadYaml(EtlYamlRouteLoader.resolveEnv(yaml), "inline.yaml");
             return ApiResponse.ok("YAML loaded");
         } catch (Exception e) { return ApiResponse.error(e.getMessage()); }
     }

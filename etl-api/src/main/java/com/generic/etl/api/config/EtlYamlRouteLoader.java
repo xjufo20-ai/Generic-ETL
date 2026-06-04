@@ -90,7 +90,7 @@ public class EtlYamlRouteLoader {
             @Override public String getLocation() { return loc; }
             @Override public InputStream getInputStream() { return new ByteArrayInputStream(content.getBytes()); }
             @Override public boolean exists() { return true; }
-            @Override public String getScheme() { return "inline"; }
+            @Override public String getScheme() { return "yaml"; }
         };
     }
 }
