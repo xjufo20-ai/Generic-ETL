@@ -1,6 +1,5 @@
-package com.generic.etl.api.store;
+package com.generic.etl.core.store;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 
@@ -9,7 +8,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -30,14 +28,12 @@ public class AuditLog {
 
     /** Record a pipeline config change (register/update/delete). */
     public void recordChange(String pipeline, String action, String who) {
-        Entry e = new Entry(pipeline, action, who, null, null, Instant.now().toString());
-        append(e);
+        append(new Entry(pipeline, action, who, null, null, Instant.now().toString()));
     }
 
     /** Record a pipeline execution. */
     public void recordExecution(String pipeline, String status, long rows, String who) {
-        Entry e = new Entry(pipeline, "EXECUTION", who, status, rows, Instant.now().toString());
-        append(e);
+        append(new Entry(pipeline, "EXECUTION", who, status, rows, Instant.now().toString()));
     }
 
     public List<Entry> getHistory(String pipeline) {
@@ -45,7 +41,7 @@ public class AuditLog {
             if (!Files.exists(file)) return List.of();
             return Files.readAllLines(file).stream()
                     .map(line -> { try { return mapper.readValue(line, Entry.class); } catch (Exception ex) { return null; } })
-                    .filter(e -> e != null && (pipeline == null || pipeline.equals(e.pipeline)))
+                    .filter(e -> e != null && (pipeline == null || pipeline.equals(e.pipeline())))
                     .collect(Collectors.toList());
         } catch (IOException ex) { return List.of(); }
     }

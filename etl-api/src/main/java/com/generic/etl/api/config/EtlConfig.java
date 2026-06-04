@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.generic.etl.api.store.AuditLog;
+import com.generic.etl.core.store.AuditLog;
 import com.generic.etl.api.store.LineageStore;
 import com.generic.etl.api.store.StateStore;
 import com.generic.etl.core.transform.CamelDeadLetterHandler;

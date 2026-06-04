@@ -10,13 +10,19 @@ allprojects {
     repositories { mavenCentral() }
 }
 
-ext { camelVersion = '4.7.0' }
+ext {
+    camelVersion = '4.8.0'
+    javaVersion = 21
+}
 
 subprojects {
     apply plugin: 'java'
     apply plugin: 'io.spring.dependency-management'
 
-    java { toolchain { languageVersion = JavaLanguageVersion.of(22) } }
+    java {
+        sourceCompatibility = JavaVersion.toVersion(javaVersion)
+        targetCompatibility = JavaVersion.toVersion(javaVersion)
+    }
 
     dependencyManagement {
         imports { mavenBom 'org.springframework.boot:spring-boot-dependencies:3.3.5' }

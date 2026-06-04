@@ -1,6 +1,6 @@
 package com.generic.etl.load.persist;
 
-import com.generic.etl.common.model.PersistConfig;
+import com.generic.etl.common.model.ConnectionConfig;
 import com.generic.etl.common.model.Row;
 import lombok.extern.slf4j.Slf4j;
 import javax.sql.DataSource;
@@ -13,8 +13,7 @@ import java.util.stream.Collectors;
  *
  * Two modes:
  *   1) Default DataSource (Spring-managed) — for most pipelines.
- *   2) Per-pipeline ConnectionConfig — when output.storage specifies its own DB connection,
- *      creates a temporary connection via DriverManager.
+ *   2) Per-pipeline ConnectionConfig — creates temporary connection via DriverManager.
  */
 @Slf4j
 public class PersistHandler {
@@ -27,18 +26,11 @@ public class PersistHandler {
         return insert(table, rows, primaryKeys, null);
     }
 
-    /**
-     * Insert rows, optionally using a per-pipeline DB connection.
-     * When connConfig is non-null, opens a temporary connection via DriverManager
-     * (connection pooling is skipped — suitable for occasional writes).
-     */
-    public int insert(String table, List<Row> rows, List<String> primaryKeys,
-                       PersistConfig.ConnectionConfig connConfig) {
+    /** Insert rows, optionally using a per-pipeline DB connection. */
+    public int insert(String table, List<Row> rows, List<String> primaryKeys, ConnectionConfig connConfig) {
         if (rows.isEmpty()) return 0;
         List<String> cols = rows.get(0).getValues().keySet().stream().toList();
-
         String sql = buildSql(table, cols, primaryKeys);
-
         if (connConfig != null) {
             return insertWithDriverManager(connConfig, sql, rows, cols, table);
         } else {
@@ -67,8 +59,8 @@ public class PersistHandler {
         }
     }
 
-    private int insertWithDriverManager(PersistConfig.ConnectionConfig conn,
-                                         String sql, List<Row> rows, List<String> cols, String table) {
+    private int insertWithDriverManager(ConnectionConfig conn, String sql, List<Row> rows,
+                                         List<String> cols, String table) {
         try (Connection c = DriverManager.getConnection(conn.getUrl(), conn.getUsername(), conn.getPassword());
              PreparedStatement ps = c.prepareStatement(sql)) {
             c.setAutoCommit(false);

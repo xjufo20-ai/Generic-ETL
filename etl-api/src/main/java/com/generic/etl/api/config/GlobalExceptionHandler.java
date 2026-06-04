@@ -2,6 +2,7 @@ package com.generic.etl.api.config;
 
 import com.generic.etl.common.dto.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -11,6 +12,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @Value("${spring.profiles.active:dev}")
+    private String activeProfile;
 
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
@@ -30,6 +34,9 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ApiResponse<?> handleInternal(Exception e) {
         log.error("Internal error", e);
-        return ApiResponse.error("Internal error: " + e.getMessage());
+        if ("dev".equals(activeProfile)) {
+            return ApiResponse.error(e.getMessage());
+        }
+        return ApiResponse.error("Internal server error");
     }
 }

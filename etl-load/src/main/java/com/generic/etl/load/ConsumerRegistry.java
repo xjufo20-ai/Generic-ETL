@@ -2,43 +2,43 @@ package com.generic.etl.load;
 
 import com.generic.etl.common.model.ConsumerRegistration;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /** Thread-safe registry of consumers and their pipeline subscriptions. */
 public class ConsumerRegistry {
-    private final Map<String, List<ConsumerRegistration>> registry = new ConcurrentHashMap<>();
+    private final Map<String, List<ConsumerRegistration>> byConsumer = new ConcurrentHashMap<>();
+    private final Map<String, List<ConsumerRegistration>> byPipeline = new ConcurrentHashMap<>();
 
     public void register(ConsumerRegistration registration) {
         String name = registration.getConsumer().getName();
-        registry.computeIfAbsent(name, k -> new ArrayList<>()).add(registration);
+        byConsumer.computeIfAbsent(name, k -> new CopyOnWriteArrayList<>()).add(registration);
+        for (var sub : registration.getSubscriptions()) {
+            byPipeline.computeIfAbsent(sub.getPipeline(), k -> new CopyOnWriteArrayList<>()).add(registration);
+        }
     }
 
     public void unregister(String consumerName) {
-        registry.remove(consumerName);
-    }
-
-    public List<ConsumerRegistration> getByPipeline(String pipelineName) {
-        List<ConsumerRegistration> result = new ArrayList<>();
-        for (List<ConsumerRegistration> regs : registry.values()) {
-            for (ConsumerRegistration reg : regs) {
-                for (ConsumerRegistration.Subscription sub : reg.getSubscriptions()) {
-                    if (sub.getPipeline().equals(pipelineName)) {
-                        result.add(reg);
-                    }
+        List<ConsumerRegistration> removed = byConsumer.remove(consumerName);
+        if (removed != null) {
+            for (var reg : removed) {
+                for (var sub : reg.getSubscriptions()) {
+                    byPipeline.getOrDefault(sub.getPipeline(), List.of()).remove(reg);
                 }
             }
         }
-        return result;
+    }
+
+    public List<ConsumerRegistration> getByPipeline(String pipelineName) {
+        return byPipeline.getOrDefault(pipelineName, List.of());
     }
 
     public List<String> consumerNames() {
-        return new ArrayList<>(registry.keySet());
+        return new ArrayList<>(byConsumer.keySet());
     }
 
     public List<ConsumerRegistration> getSubscriptions(String consumerName) {
-        return registry.getOrDefault(consumerName, List.of());
+        return byConsumer.getOrDefault(consumerName, List.of());
     }
 }

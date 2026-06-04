@@ -7,10 +7,7 @@ public class PersistConfig {
     private StorageConfig storage;
     @Data public static class StorageConfig {
         private String type; private String table; private List<String> primaryKeys; private String mode = "insert";
-        /** Optional: per-pipeline DB connection. When set, overrides the default DataSource for writes. */
+        /** Optional: per-pipeline DB connection. When set, overrides the default DataSource. */
         private ConnectionConfig connection;
-    }
-    @Data public static class ConnectionConfig {
-        private String url; private String username; private String password; private String driverClass;
     }
 }

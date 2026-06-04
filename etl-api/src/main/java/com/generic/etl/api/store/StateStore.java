@@ -1,6 +1,7 @@
 package com.generic.etl.api.store;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.generic.etl.core.store.AuditLog;
 import com.generic.etl.common.model.ConsumerRegistration;
 import lombok.extern.slf4j.Slf4j;
 

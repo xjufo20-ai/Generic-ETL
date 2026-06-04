@@ -3,7 +3,6 @@ package com.generic.etl.api.security;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -19,8 +18,7 @@ import java.util.stream.Collectors;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    /** Comma-separated key:role pairs, e.g. "sk-admin-123:ADMIN,sk-op-456:OPERATOR,sk-view-789:VIEWER" */
-    @Value("${etl.api-keys:sk-admin-123:ADMIN,sk-op-456:OPERATOR,sk-view-789:VIEWER}")
+    @Value("${etl.api-keys:sk-admin:ADMIN,sk-operator:OPERATOR,sk-viewer:VIEWER}")
     private List<String> apiKeyEntries;
 
     @Bean
@@ -37,8 +35,13 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Swagger & Actuator — no auth needed
-                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/actuator/health", "/dashboard/**", "/", "/css/**").permitAll()
+                // Swagger, Hawtio, Actuator, Dashboard — public
+                .requestMatchers(
+                    "/swagger-ui/**", "/v3/api-docs/**", "/webjars/**",
+                    "/hawtio/**", "/jolokia/**",
+                    "/actuator/**",
+                    "/dashboard/**", "/", "/css/**", "/js/**", "/img/**", "/favicon.ico"
+                ).permitAll()
                 // Everything else requires authentication
                 .anyRequest().authenticated()
             )

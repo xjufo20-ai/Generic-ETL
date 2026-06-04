@@ -4,13 +4,17 @@ import com.generic.etl.common.model.ConsumerRegistration;
 import com.generic.etl.common.model.Row;
 import com.generic.etl.core.expression.ExpressionEvaluator;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.RestClient;
 
 import java.util.*;
 
 @Slf4j
 public class ConsumerDispatchService {
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestClient restClient;
+
+    public ConsumerDispatchService(RestClient.Builder restClientBuilder) {
+        this.restClient = restClientBuilder.build();
+    }
 
     public void dispatch(String pipelineName, List<Row> rows, List<ConsumerRegistration> registrations) {
         for (ConsumerRegistration reg : registrations) {
@@ -45,7 +49,11 @@ public class ConsumerDispatchService {
 
     private void pushToConsumer(String endpoint, List<Map<String, Object>> data, String consumerName) {
         try {
-            restTemplate.postForObject(endpoint, data, String.class);
+            restClient.post()
+                .uri(endpoint)
+                .body(data)
+                .retrieve()
+                .toBodilessEntity();
             log.info("Pushed {} rows to consumer '{}'", data.size(), consumerName);
         } catch (Exception e) {
             log.error("Push failed to consumer '{}'", consumerName, e);
