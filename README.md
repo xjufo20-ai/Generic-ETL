@@ -35,8 +35,8 @@ JSON 或 YAML 配置驱动的 ETL 引擎，基于 **Spring Boot 3.3 + Apache Cam
                                         │
                          ┌──────────────┼──────────────┐
                          ▼              ▼              ▼
-                   PersistHandler  ResultCache    Actuator + API
-                     (JDBC写入)   (PULL缓存)    (metrics/health)
+                   PersistHandler  ResultCache    Hawtio Console
+                     (JDBC写入)   (PULL缓存)    (可视化监控)
 ```
 
 **设计要点**:
@@ -70,7 +70,7 @@ docker compose up -d
 ./gradlew :etl-api:bootRun
 
 # 3. 访问
-# Actuator 健康检查: http://localhost:8080/actuator/health
+# Hawtio 控制台: http://localhost:8080/hawtio
 # Swagger API 文档:   http://localhost:8080/swagger-ui.html
 # Dashboard:          http://localhost:8080/dashboard
 ```
@@ -497,29 +497,24 @@ etl:
 
 ## 监控
 
+### Hawtio 控制台
+
+ — Camel Routes 可视化、JMX 指标、Route 调试追踪。
+
+### Hawtio 控制台
+
+`http://localhost:8080/hawtio` -- Camel Routes visual monitoring + JMX metrics.
+
 ### Camel 路由管理
 
-通过 REST API 和 Actuator 管理 Camel Routes：
+REST API:
 
-- `GET /api/pipelines/routes` — 列出所有 Route
-- `DELETE /api/pipelines/routes/{id}` — 停止并移除 Route
-- `GET /actuator/metrics/etl.*` — Pipeline 执行指标
-- `GET /actuator/health` — 健康检查
-- `GET /dashboard` — Web Dashboard
-
-### Dashboard
-
-`http://localhost:8080/dashboard` — Pipeline 列表、最近活动、数据血缘。
+- `GET /api/pipelines/routes` -- list all Routes
+- `DELETE /api/pipelines/routes/{id}` -- stop and remove Route
+- `GET /api/pipelines/{name}/audit` -- audit log
+- `GET /api/pipelines/lineage` -- data lineage
 
 ### Actuator 指标
-
-| 端点 | 内容 |
-|------|------|
-| `/actuator/health` | 健康检查 |
-| `/actuator/metrics` | `etl.pipelines.executed`, `etl.pipelines.failed`, `etl.rows.extracted`, `etl.pipeline.duration` |
-
----
-
 ## 配置 Profile
 
 | Profile | 数据库 | 日志 | 说明 |
@@ -584,6 +579,8 @@ Generic-ETL/
 | Apache Camel | 4.7.0 | ETL 管线引擎 (EIP + YAML DSL) |
 | MVEL | 2.5.2 | 表达式评估（Filter） |
 | Jackson | 2.17 | JSON 序列化 / 多态反序列化 |
+| Hawtio | 4.2.0 | Camel 可视化监控 |
+| Hawtio | 4.2.0 | Camel visual monitoring |
 | Lombok | 1.18.34 | 样板代码 |
 | PostgreSQL / H2 | — | 数据存储 |
 | Gradle | 8.10 | 构建工具 |

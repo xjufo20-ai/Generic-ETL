@@ -36,3 +36,8 @@ camel:
       enabled: false
     ftp:
       enabled: false
+
+# ── Hawtio Management Console ──
+hawtio:
+  authentication-enabled: false
+  proxy-whitelist: localhost

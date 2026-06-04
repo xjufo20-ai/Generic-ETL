@@ -21,9 +21,9 @@ public class SecurityConfig {
     @Value("${etl.api-keys:sk-admin:ADMIN,sk-operator:OPERATOR,sk-viewer:VIEWER}")
     private List<String> apiKeyEntries;
 
-    // Paths open to the public — no API key required
     private static final String[] PUBLIC_PATHS = {
         "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**",
+        "/hawtio/**", "/jolokia/**",
         "/actuator/**",
         "/dashboard/**", "/", "/css/**", "/js/**", "/img/**", "/favicon.ico",
         "/error"
