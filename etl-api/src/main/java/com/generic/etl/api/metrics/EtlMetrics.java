@@ -3,18 +3,23 @@ package com.generic.etl.api.metrics;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.TimeUnit;
 
 @Component
+@RequiredArgsConstructor
 public class EtlMetrics {
-    private final Counter pipelinesExecuted;
-    private final Counter pipelinesFailed;
-    private final Counter rowsExtracted;
-    private final Timer pipelineDuration;
+    private final MeterRegistry registry;
+    private Counter pipelinesExecuted;
+    private Counter pipelinesFailed;
+    private Counter rowsExtracted;
+    private Timer pipelineDuration;
 
-    public EtlMetrics(MeterRegistry registry) {
+    @PostConstruct
+    void init() {
         this.pipelinesExecuted = Counter.builder("etl.pipelines.executed")
                 .description("Total number of successful pipeline executions").register(registry);
         this.pipelinesFailed = Counter.builder("etl.pipelines.failed")

@@ -2,6 +2,7 @@ package com.generic.etl.api.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.generic.etl.common.model.PipelineConfig;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.camel.CamelContext;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -15,6 +16,7 @@ import java.util.regex.*;
 /** Loads routes from config/routes/*.yaml + config/samples/*.json at startup. */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class EtlYamlRouteLoader {
 
     private static final String ROUTES_DIR = "config/routes";
@@ -23,11 +25,6 @@ public class EtlYamlRouteLoader {
 
     private final CamelContext camelContext;
     private final ObjectMapper mapper;
-
-    public EtlYamlRouteLoader(CamelContext camelContext, ObjectMapper mapper) {
-        this.camelContext = camelContext;
-        this.mapper = mapper;
-    }
 
     @EventListener(ApplicationReadyEvent.class)
     public void loadRoutes() {

@@ -10,6 +10,7 @@ import com.generic.etl.api.store.StateStore;
 import com.generic.etl.common.dto.ApiResponse;
 import com.generic.etl.common.model.PipelineConfig;
 import com.generic.etl.core.config.PipelineConfigValidator;
+import lombok.RequiredArgsConstructor;
 import org.apache.camel.CamelContext;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -18,6 +19,7 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/api/pipelines")
+@RequiredArgsConstructor
 public class PipelineController {
     private final CamelContext camelContext;
     private final StateStore store;
@@ -26,12 +28,6 @@ public class PipelineController {
     private final EtlYamlRouteLoader yamlLoader;
     private final ObjectMapper mapper;
     private final PipelineConfigValidator validator = new PipelineConfigValidator();
-
-    public PipelineController(CamelContext camelContext, StateStore store, AuditLog auditLog,
-                               LineageStore lineageStore, EtlYamlRouteLoader yamlLoader, ObjectMapper mapper) {
-        this.camelContext = camelContext; this.store = store; this.auditLog = auditLog;
-        this.lineageStore = lineageStore; this.yamlLoader = yamlLoader; this.mapper = mapper;
-    }
 
     @PostMapping("/register")
     @PreAuthorize(Roles.IS_ADMIN)

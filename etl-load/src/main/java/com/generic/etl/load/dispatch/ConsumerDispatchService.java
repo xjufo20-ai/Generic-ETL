@@ -3,17 +3,21 @@ package com.generic.etl.load.dispatch;
 import com.generic.etl.common.model.ConsumerRegistration;
 import com.generic.etl.common.model.Row;
 import com.generic.etl.core.expression.ExpressionEvaluator;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.client.RestClient;
 
 import java.util.*;
 
 @Slf4j
+@RequiredArgsConstructor
 public class ConsumerDispatchService {
-    private final RestClient restClient;
+    private final RestClient.Builder restClientBuilder;
+    private RestClient restClient; // lazy init after builder configuration
 
-    public ConsumerDispatchService(RestClient.Builder restClientBuilder) {
-        this.restClient = restClientBuilder.build();
+    private RestClient client() {
+        if (restClient == null) restClient = restClientBuilder.build();
+        return restClient;
     }
 
     public void dispatch(String pipelineName, List<Row> rows, List<ConsumerRegistration> registrations) {
@@ -49,11 +53,7 @@ public class ConsumerDispatchService {
 
     private void pushToConsumer(String endpoint, List<Map<String, Object>> data, String consumerName) {
         try {
-            restClient.post()
-                .uri(endpoint)
-                .body(data)
-                .retrieve()
-                .toBodilessEntity();
+            client().post().uri(endpoint).body(data).retrieve().toBodilessEntity();
             log.info("Pushed {} rows to consumer '{}'", data.size(), consumerName);
         } catch (Exception e) {
             log.error("Push failed to consumer '{}'", consumerName, e);

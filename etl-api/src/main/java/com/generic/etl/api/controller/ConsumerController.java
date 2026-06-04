@@ -9,6 +9,7 @@ import com.generic.etl.common.model.Row;
 import com.generic.etl.load.ConsumerRegistry;
 import com.generic.etl.load.ResultCache;
 import com.generic.etl.load.dispatch.ConsumerDispatchService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,19 +17,12 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/api/consumers")
+@RequiredArgsConstructor
 public class ConsumerController {
     private final ConsumerRegistry consumerRegistry;
     private final ConsumerDispatchService dispatchService;
     private final ResultCache inMemoryStore;
     private final StateStore store;
-
-    public ConsumerController(ConsumerRegistry consumerRegistry, ConsumerDispatchService dispatchService,
-                               ResultCache inMemoryStore, StateStore store) {
-        this.consumerRegistry = consumerRegistry;
-        this.dispatchService = dispatchService;
-        this.inMemoryStore = inMemoryStore;
-        this.store = store;
-    }
 
     @PostMapping("/register")
     @PreAuthorize(Roles.IS_ADMIN)

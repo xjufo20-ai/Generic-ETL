@@ -2,24 +2,18 @@ package com.generic.etl.load.persist;
 
 import com.generic.etl.common.model.ConnectionConfig;
 import com.generic.etl.common.model.Row;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import javax.sql.DataSource;
 import java.sql.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * JDBC persist — insert with optional upsert.
- *
- * Two modes:
- *   1) Default DataSource (Spring-managed) — for most pipelines.
- *   2) Per-pipeline ConnectionConfig — creates temporary connection via DriverManager.
- */
+/** JDBC persist — insert with optional upsert via default DataSource or per-pipeline ConnectionConfig. */
 @Slf4j
+@RequiredArgsConstructor
 public class PersistHandler {
     private final DataSource dataSource;
-
-    public PersistHandler(DataSource dataSource) { this.dataSource = dataSource; }
 
     /** Insert rows using the default DataSource. */
     public int insert(String table, List<Row> rows, List<String> primaryKeys) {

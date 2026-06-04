@@ -4,6 +4,7 @@ import com.generic.etl.core.store.AuditLog;
 import com.generic.etl.common.model.ConsumerRegistration;
 import com.generic.etl.common.model.Row;
 import com.generic.etl.load.dispatch.ConsumerDispatchService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.camel.Exchange;
 import org.springframework.stereotype.Component;
@@ -12,19 +13,12 @@ import java.util.*;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class LoadRouter {
     private final ConsumerDispatchService dispatchService;
     private final ConsumerRegistry consumerRegistry;
     private final ResultCache inMemoryStore;
     private final AuditLog auditLog;
-
-    public LoadRouter(ConsumerDispatchService dispatchService, ConsumerRegistry consumerRegistry,
-                      ResultCache inMemoryStore, AuditLog auditLog) {
-        this.dispatchService = dispatchService;
-        this.consumerRegistry = consumerRegistry;
-        this.inMemoryStore = inMemoryStore;
-        this.auditLog = auditLog;
-    }
 
     /** Camel entry point — called from YAML DSL: to: bean:loadRouter */
     @SuppressWarnings("unchecked")

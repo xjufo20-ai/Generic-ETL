@@ -20,7 +20,7 @@ public final class JsonToYamlCompiler {
         yaml.append("- route:\n");
         yaml.append("    id: ").append(name).append("\n");
 
-        // ── Error handling: delegate to CamelDeadLetterHandler ──
+        // ── Error handling ──
         yaml.append("    onException:\n");
         yaml.append("      - exception: java.lang.Exception\n");
         yaml.append("        handled: true\n");
@@ -35,18 +35,26 @@ public final class JsonToYamlCompiler {
         yaml.append(buildSource(config));
         yaml.append("    steps:\n");
 
+        // ── CSV sources need explicit unmarshal ──
+        if (config.getDatasource() instanceof DataSourceConfig.CsvDataSource) {
+            yaml.append("      - unmarshal:\n");
+            yaml.append("          csv:\n");
+            yaml.append("            use-maps: true\n");
+        }
+
+        // ── Transforms ──
         if (config.getTransforms() != null) {
             for (TransformDef t : config.getTransforms()) {
                 yaml.append(buildStep(t));
             }
         }
 
-        // pipelineName for LoadRouter
+        // ── pipelineName for LoadRouter ──
         yaml.append("      - setProperty:\n");
         yaml.append("          name: pipelineName\n");
         yaml.append("          constant: ").append(name).append("\n");
 
-        // Output: multicast
+        // ── Output ──
         yaml.append("      - multicast:\n");
         yaml.append("          steps:\n");
         yaml.append("            - to: bean:loadRouter\n");
@@ -143,8 +151,6 @@ public final class JsonToYamlCompiler {
      */
     static String toCamelSimple(String expr) {
         if (expr == null || expr.isBlank()) return "true";
-        // Wrap bare identifiers that precede comparison/logical operators
-        // Covers: >, <, >=, <=, ==, !=, &&, ||
         return expr.replaceAll(
             "\\b([a-zA-Z_]\\w*)\\b(?=\\s*(>=|<=|!=|==|>|<|&&|\\|\\|))",
             "\\${body[$1]}"
