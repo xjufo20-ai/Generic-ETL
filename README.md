@@ -35,8 +35,8 @@ JSON 或 YAML 配置驱动的 ETL 引擎，基于 **Spring Boot 3.3 + Apache Cam
                                         │
                          ┌──────────────┼──────────────┐
                          ▼              ▼              ▼
-                   PersistHandler  ResultCache    Hawtio Console
-                     (JDBC写入)   (PULL缓存)    (Camel 监控)
+                   PersistHandler  ResultCache    Actuator + API
+                     (JDBC写入)   (PULL缓存)    (metrics/health)
 ```
 
 **设计要点**:
@@ -70,7 +70,7 @@ docker compose up -d
 ./gradlew :etl-api:bootRun
 
 # 3. 访问
-# Hawtio 监控控制台:  http://localhost:8080/hawtio
+# Actuator 健康检查: http://localhost:8080/actuator/health
 # Swagger API 文档:   http://localhost:8080/swagger-ui.html
 # Dashboard:          http://localhost:8080/dashboard
 ```
@@ -98,6 +98,85 @@ curl http://localhost:8080/api/pipelines/routes \
 ```
 
 ---
+
+## CSV → CSV 示例：从文件到文件的最简 ETL
+
+场景：读取 input.csv，筛选金额 > 100 的行，重命名字段，输出到 output.csv。
+
+### 输入文件 data/input.csv
+
+```csv
+order_id,customer,amount,city
+1,张三,150.00,北京
+2,李四,80.00,上海
+3,王五,200.00,北京
+4,赵六,50.00,深圳
+```
+
+### Pipeline JSON
+
+```jsonc
+{
+  "pipeline": {"name": "csv-filter", "version": "1.0"},
+  "datasource": {
+    "type": "csv",
+    "filePath": "data//input.csv",
+    "delimiter": ",",
+    "hasHeader": true
+  },
+  "inputSchema": {
+    "fields": [
+      {"name": "order_id", "type": "LONG"},
+      {"name": "customer", "type": "STRING"},
+      {"name": "amount", "type": "DECIMAL"},
+      {"name": "city", "type": "STRING"}
+    ]
+  },
+  "transforms": [
+    {
+      "type": "project",
+      "mappings": [
+        {"from": "order_id", "to": "id"},
+        {"from": "customer", "to": "name"},
+        {"from": "amount", "to": "total"},
+        {"from": "city", "to": "location"}
+      ]
+    },
+    {"type": "filter", "expression": "amount > 100"}
+  ],
+  "output": {"storage": {"type": "csv", "table": "output.csv"}}
+}
+```
+
+### 执行
+
+```bash
+# 1. 创建输入文件
+mkdir -p data
+cat > data/input.csv << CSV
+order_id,customer,amount,city
+1,张三,150.00,北京
+2,李四,80.00,上海
+3,王五,200.00,北京
+4,赵六,50.00,深圳
+CSV
+
+# 2. 注册 Pipeline
+curl -X POST http://localhost:8080/api/pipelines/register   -H "X-API-Key: dev-admin"   -H "Content-Type: application/json"   -d @config/samples/etl_csv_sample.json
+
+# 3. 查看结果
+cat data/output.csv
+```
+
+### 输出 data/output.csv
+
+```csv
+id,name,total,location
+1,张三,150.0,北京
+3,王五,200.0,北京
+```
+
+> **要点**：CSV 数据源通过 Camel File 组件读取，project 做列映射，filter 按 MVEL 表达式过滤，最终 multicast 输出到 CSV 文件。整个过程零 Java 代码。
 
 ## 配置详解
 
@@ -418,9 +497,15 @@ etl:
 
 ## 监控
 
-### Hawtio 控制台
+### Camel 路由管理
 
-`http://localhost:8080/hawtio` — Camel Routes 可视化、JMX 指标、Route 调试追踪。
+通过 REST API 和 Actuator 管理 Camel Routes：
+
+- `GET /api/pipelines/routes` — 列出所有 Route
+- `DELETE /api/pipelines/routes/{id}` — 停止并移除 Route
+- `GET /actuator/metrics/etl.*` — Pipeline 执行指标
+- `GET /actuator/health` — 健康检查
+- `GET /dashboard` — Web Dashboard
 
 ### Dashboard
 
@@ -499,7 +584,6 @@ Generic-ETL/
 | Apache Camel | 4.7.0 | ETL 管线引擎 (EIP + YAML DSL) |
 | MVEL | 2.5.2 | 表达式评估（Filter） |
 | Jackson | 2.17 | JSON 序列化 / 多态反序列化 |
-| Hawtio | 4.2.0 | Camel 可视化监控 |
 | Lombok | 1.18.34 | 样板代码 |
 | PostgreSQL / H2 | — | 数据存储 |
 | Gradle | 8.10 | 构建工具 |

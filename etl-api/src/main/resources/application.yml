@@ -11,7 +11,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,hawtio
+        include: health,info,metrics
   endpoint:
     health:
       show-details: always
@@ -36,8 +36,3 @@ camel:
       enabled: false
     ftp:
       enabled: false
-
-# ── Hawtio Management Console ──
-hawtio:
-  authentication-enabled: false
-  proxy-whitelist: localhost

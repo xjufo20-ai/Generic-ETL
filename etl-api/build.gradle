@@ -1,5 +1,4 @@
 plugins { id 'org.springframework.boot' }
-ext { springCloudVersion = '2023.0.3'; camelVersion = '4.7.0' }
 
 dependencies {
     implementation project(':etl-common'); implementation project(':etl-core')
@@ -20,13 +19,12 @@ dependencies {
     implementation "org.apache.camel:camel-ftp:${camelVersion}"
     implementation "org.apache.camel:camel-management:${camelVersion}"
     implementation "org.apache.camel:camel-yaml-dsl:${camelVersion}"
-    // Hawtio (brings jolokia transitively)
-    implementation 'io.hawt:hawtio-springboot:4.2.0'
     runtimeOnly 'org.postgresql:postgresql:42.7.4'
     runtimeOnly 'com.h2database:h2'
     testImplementation 'org.apache.camel:camel-test-spring-junit5:4.7.0'
 }
 
+ext { springCloudVersion = '2023.0.3' }
 dependencyManagement {
     imports { mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}" }
 }

@@ -21,6 +21,14 @@ public class SecurityConfig {
     @Value("${etl.api-keys:sk-admin:ADMIN,sk-operator:OPERATOR,sk-viewer:VIEWER}")
     private List<String> apiKeyEntries;
 
+    // Paths open to the public — no API key required
+    private static final String[] PUBLIC_PATHS = {
+        "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**",
+        "/actuator/**",
+        "/dashboard/**", "/", "/css/**", "/js/**", "/img/**", "/favicon.ico",
+        "/error"
+    };
+
     @Bean
     public Map<String, String> keyToRole() {
         return apiKeyEntries.stream()
@@ -35,17 +43,11 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Swagger, Hawtio, Actuator, Dashboard — public
-                .requestMatchers(
-                    "/swagger-ui/**", "/v3/api-docs/**", "/webjars/**",
-                    "/hawtio/**", "/jolokia/**",
-                    "/actuator/**",
-                    "/dashboard/**", "/", "/css/**", "/js/**", "/img/**", "/favicon.ico"
-                ).permitAll()
-                // Everything else requires authentication
+                .requestMatchers(PUBLIC_PATHS).permitAll()
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(new ApiKeyAuthFilter(keyToRole), UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(new ApiKeyAuthFilter(keyToRole, PUBLIC_PATHS),
+                UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
