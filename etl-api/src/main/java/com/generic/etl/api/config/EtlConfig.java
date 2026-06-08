@@ -7,7 +7,6 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.generic.etl.core.store.AuditLog;
 import com.generic.etl.api.store.LineageStore;
 import com.generic.etl.api.store.StateStore;
-import com.generic.etl.core.transform.CamelDeadLetterHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.TaskScheduler;
@@ -29,7 +28,6 @@ public class EtlConfig {
     @Bean public AuditLog auditLog(ObjectMapper mapper) { return new AuditLog(Path.of("data"), mapper); }
     @Bean public LineageStore lineageStore(ObjectMapper mapper) { return new LineageStore(Path.of("data"), mapper); }
     @Bean public StateStore stateStore(ObjectMapper mapper, AuditLog auditLog) { return new StateStore(Path.of("data"), mapper, auditLog); }
-    @Bean public CamelDeadLetterHandler camelDeadLetterHandler() { return new CamelDeadLetterHandler(); }
 
     @Bean public TaskScheduler taskScheduler() {
         ThreadPoolTaskScheduler s = new ThreadPoolTaskScheduler(); s.setPoolSize(4); s.setThreadNamePrefix("etl-"); s.initialize();

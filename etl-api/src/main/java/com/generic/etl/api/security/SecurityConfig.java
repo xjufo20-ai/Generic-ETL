@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    @Value("${etl.api-keys:sk-admin:ADMIN,sk-operator:OPERATOR,sk-viewer:VIEWER}")
+    @Value("${etl.api-keys}")
     private List<String> apiKeyEntries;
 
     private static final String[] PUBLIC_PATHS = {

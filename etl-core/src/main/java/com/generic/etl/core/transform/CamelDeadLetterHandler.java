@@ -1,5 +1,7 @@
 package com.generic.etl.core.transform;
 
+import org.springframework.stereotype.Component;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
@@ -13,6 +15,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * Camel Dead Letter Channel handler.
  * Collects failed exchanges per pipeline for inspection.
  */
+@Component("camelDeadLetterHandler")
 @Slf4j
 public class CamelDeadLetterHandler implements Processor {
 

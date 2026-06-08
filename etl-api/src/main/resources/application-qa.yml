@@ -14,7 +14,7 @@ logging:
 etl:
   retry:
     max-retries: 2
-  api-keys: ${ETL_API_KEYS:qa-admin:ADMIN,qa-operator:OPERATOR,qa-viewer:VIEWER}
+  api-keys: ${ETL_API_KEYS}
 
 eureka:
   client:

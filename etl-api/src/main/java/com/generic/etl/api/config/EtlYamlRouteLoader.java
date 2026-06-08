@@ -1,7 +1,11 @@
 package com.generic.etl.api.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.generic.etl.api.store.StateStore;
+import com.generic.etl.common.model.ConsumerRegistration;
 import com.generic.etl.common.model.PipelineConfig;
+import com.generic.etl.core.compile.JsonToYamlCompiler;
+import com.generic.etl.engine.ConsumerRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.camel.CamelContext;
@@ -11,9 +15,17 @@ import org.springframework.stereotype.Component;
 
 import java.io.*;
 import java.nio.file.*;
+import java.util.*;
 import java.util.regex.*;
 
-/** Loads routes from config/routes/*.yaml + config/samples/*.json at startup. */
+/**
+ * Loads Camel routes at startup from three sources:
+ * 1. config/routes/*.yaml          (static YAML DSL)
+ * 2. config/samples/*.json         (static JSON → compiled)
+ * 3. data/pipelines.json           (API-registered pipelines, rehydrated on restart)
+ *
+ * Also restores persisted consumers to the in-memory registry.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -25,13 +37,22 @@ public class EtlYamlRouteLoader {
 
     private final CamelContext camelContext;
     private final ObjectMapper mapper;
+    private final StateStore stateStore;
+    private final ConsumerRegistry consumerRegistry;
 
     @EventListener(ApplicationReadyEvent.class)
     public void loadRoutes() {
-        loadYamlDir();
-        loadJsonDir();
-        log.info("Routes loaded: {}", camelContext.getRoutes().size());
+        int before = camelContext.getRoutes().size();
+
+        loadYamlDir();                                    // 1. static YAML
+        loadJsonDir();                                    // 2. static JSON
+        restoreApiPipelines();                            // 3. rehydrate API pipelines
+        restoreConsumers();                               // 4. rehydrate consumers
+
+        log.info("Routes loaded: {} → {} (static + restored)", before, camelContext.getRoutes().size());
     }
+
+    // ── Static YAML files ─────────────────────────────────────────────
 
     private void loadYamlDir() {
         Path dir = Path.of(ROUTES_DIR);
@@ -51,8 +72,7 @@ public class EtlYamlRouteLoader {
                      try {
                          String json = resolveEnv(readFile(f));
                          PipelineConfig config = mapper.readValue(json, PipelineConfig.class);
-                         String yaml = JsonToYamlCompiler.compile(config);
-                         loadYaml(yaml, f.toString());
+                         loadYaml(JsonToYamlCompiler.compile(config), f.toString());
                          log.info("Compiled JSON → Camel: {}", f.getFileName());
                      } catch (Exception e) {
                          log.error("Failed: {}", f.getFileName(), e);
@@ -61,7 +81,55 @@ public class EtlYamlRouteLoader {
         } catch (IOException e) { log.error("Scan failed: {}", SAMPLES_DIR, e); }
     }
 
-    /** Load a YAML string as Camel routes. */
+    // ── API-registered pipelines (rehydrate on restart) ──────────────
+
+    private void restoreApiPipelines() {
+        Map<String, String> stored = stateStore.getAllPipelines();
+        if (stored.isEmpty()) return;
+
+        int restored = 0;
+        Set<String> existing = existingRouteIds();
+
+        for (var entry : stored.entrySet()) {
+            String name = entry.getKey();
+            String json = entry.getValue();
+
+            if (existing.contains(name)) {
+                log.info("Skipping '{}' (route already loaded from static config)", name);
+                continue;
+            }
+
+            try {
+                PipelineConfig config = mapper.readValue(
+                        resolveEnv(json), PipelineConfig.class);
+                String yaml = JsonToYamlCompiler.compile(config);
+                loadYaml(yaml, "api:" + name + ".yaml");
+                restored++;
+                log.info("Restored API pipeline → Camel: {}", name);
+            } catch (Exception e) {
+                log.error("Failed to restore pipeline '{}'", name, e);
+            }
+        }
+        log.info("Restored {} API pipelines", restored);
+    }
+
+    // ── Consumer rehydration ──────────────────────────────────────────
+
+    private void restoreConsumers() {
+        List<ConsumerRegistration> stored = stateStore.getAllConsumers();
+        if (stored.isEmpty()) return;
+
+        int restored = 0;
+        for (ConsumerRegistration reg : stored) {
+            consumerRegistry.register(reg);
+            restored++;
+        }
+        log.info("Restored {} consumers", restored);
+    }
+
+    // ── Public helpers ────────────────────────────────────────────────
+
+    /** Load a YAML string as Camel routes (public — used by PipelineController). */
     public void loadYaml(String yaml, String location) {
         try {
             var loader = camelContext.getCamelContextExtension()
@@ -80,7 +148,14 @@ public class EtlYamlRouteLoader {
         m.appendTail(sb); return sb.toString();
     }
 
-    private static String readFile(Path p) { try { return Files.readString(p); } catch (IOException e) { throw new RuntimeException(e); } }
+    private Set<String> existingRouteIds() {
+        return new HashSet<>(camelContext.getRoutes().stream()
+                .map(r -> r.getRouteId()).toList());
+    }
+
+    private static String readFile(Path p) {
+        try { return Files.readString(p); } catch (IOException e) { throw new RuntimeException(e); }
+    }
 
     private static org.apache.camel.spi.Resource resource(String content, String loc) {
         return new org.apache.camel.spi.Resource() {
