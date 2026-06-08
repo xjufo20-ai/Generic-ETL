@@ -1,0 +1,8 @@
+{
+  "consumer": {"name": "my-app", "endpoint": "http://localhost:9999/webhook"},
+  "subscriptions": [{
+    "pipeline": "csv-etl-demo",
+    "fields": ["id", "customer", "total", "city"],
+    "delivery": {"mode": "PULL"}
+  }]
+}

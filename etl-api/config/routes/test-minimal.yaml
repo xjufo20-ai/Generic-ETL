@@ -1,0 +1,16 @@
+- route:
+    id: test-minimal
+    from:
+      uri: file:/Users/junxu/Documents/Generic-ETL/examples/csv-etl
+      parameters:
+        fileName: input.csv
+        noop: true
+        idempotent: false
+      steps:
+      - unmarshal:
+          csv:
+            use-maps: true
+      - setProperty:
+          name: pipelineName
+          constant: test-minimal
+      - to: bean:loadRouter

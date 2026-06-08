@@ -1,0 +1,22 @@
+- route:
+    id: test-minimal
+    from:
+      uri: file:examples/csv-etl
+      parameters:
+        fileName: input.csv
+        noop: true
+        idempotent: false
+      steps:
+      - unmarshal:
+          csv:
+            use-maps: true
+      - setProperty:
+          name: pipelineName
+          constant: test-minimal
+      - multicast:
+          steps:
+            - to: bean:loadRouter
+            - to:
+                uri: file:data
+                parameters:
+                  fileName: test-output.csv

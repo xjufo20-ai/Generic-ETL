@@ -1,0 +1,17 @@
+{
+  "pipeline": {"name": "csv-minimal"},
+  "datasource": {
+    "type": "csv",
+    "filePath": "examples/csv-etl/input.csv",
+    "hasHeader": true
+  },
+  "inputSchema": {
+    "fields": [
+      {"name": "order_id", "type": "STRING"},
+      {"name": "customer", "type": "STRING"},
+      {"name": "amount", "type": "STRING"},
+      {"name": "city", "type": "STRING"}
+    ]
+  },
+  "output": {"storage": {"type": "csv", "table": "minimal-output.csv"}}
+}

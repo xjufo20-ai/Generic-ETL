@@ -1,0 +1,27 @@
+{
+  "pipeline": {"name": "csv-etl-demo", "version": "1.0"},
+  "datasource": {
+    "type": "csv",
+    "filePath": "examples/csv-etl/input.csv",
+    "delimiter": ",",
+    "hasHeader": true
+  },
+  "inputSchema": {
+    "fields": [
+      {"name": "order_id", "type": "LONG"},
+      {"name": "customer", "type": "STRING"},
+      {"name": "amount", "type": "DOUBLE"},
+      {"name": "city", "type": "STRING"}
+    ]
+  },
+  "transforms": [
+    {"type": "filter", "expression": "amount > 100"},
+    {"type": "project", "mappings": [
+      {"from": "order_id", "to": "id"},
+      {"from": "customer", "to": "customer"},
+      {"from": "amount", "to": "total"},
+      {"from": "city", "to": "city"}
+    ]}
+  ],
+  "output": {"storage": {"type": "csv", "table": "output.csv"}}
+}
