@@ -34,12 +34,12 @@ JSON 或 YAML 配置驱动的 ETL 引擎，基于 **Spring Boot 3.3 + Apache Cam
 
 ## 5 分钟体验：CSV → CSV
 
-> 所有文件已在 `examples/csv-etl/` 目录下。
+> 所有文件在 `etl-api/examples/csv-etl/` 目录下。
 
 ### 1. 查看输入数据
 
 ```bash
-cat examples/csv-etl/input.csv
+cat etl-api/examples/csv-etl/input.csv
 ```
 ```
 order_id,customer,amount,city
@@ -56,32 +56,39 @@ order_id,customer,amount,city
 筛选 `amount > 100`，重命名字段，输出到 `data/output.csv`。
 
 ```bash
-curl -s -X POST http://localhost:8080/api/pipelines/register -H "X-API-Key: dev-admin" -H "Content-Type: application/json" -d @examples/csv-etl/pipeline.json
+curl -s -X POST http://localhost:8080/api/pipelines/register \
+  -H "X-API-Key: dev-admin" \
+  -H "Content-Type: application/json" \
+  -d @etl-api/examples/csv-etl/pipeline.json
 ```
 
 ### 3. 查看 Route 是否生效
 
 ```bash
 curl -s http://localhost:8080/api/pipelines/routes -H "X-API-Key: dev-viewer"
-# → ["csv-etl-demo"]
+# → ["csv-etl-demo", "test-minimal"]
 ```
 
 ### 4. 注册 Consumer（PULL 模式）
 
 ```bash
-curl -s -X POST http://localhost:8080/api/consumers/register -H "X-API-Key: dev-admin" -H "Content-Type: application/json" -d @examples/csv-etl/consumer.json
+curl -s -X POST http://localhost:8080/api/consumers/register \
+  -H "X-API-Key: dev-admin" \
+  -H "Content-Type: application/json" \
+  -d @etl-api/examples/csv-etl/consumer.json
 ```
 
 ### 5. 拉取数据
 
 ```bash
-curl -s "http://localhost:8080/api/consumers/data/csv-etl-demo?consumer=my-app" -H "X-API-Key: dev-viewer" | python3 -m json.tool
+curl -s "http://localhost:8080/api/consumers/data/csv-etl-demo?consumer=my-app" \
+  -H "X-API-Key: dev-viewer" | python3 -m json.tool
 ```
 
 响应（3 条 amount > 100 的记录，字段已重命名）：
 ```json
 {
-  "code": 200,
+  "success": true,
   "data": {
     "pipeline": "csv-etl-demo",
     "consumer": "my-app",
@@ -98,7 +105,13 @@ curl -s "http://localhost:8080/api/consumers/data/csv-etl-demo?consumer=my-app" 
 ### 6. 查看输出的 CSV 文件
 
 ```bash
-cat data/output.csv
+cat etl-api/data/output.csv
+```
+```
+id,customer,total,city
+1,张三,150.00,北京
+3,王五,200.00,北京
+5,孙七,320.00,上海
 ```
 
 ---
@@ -109,6 +122,42 @@ cat data/output.csv
 |------|------|
 | **PUSH** | 数据到达后主动 POST 到 Consumer 的 `endpoint` |
 | **PULL** | Consumer 通过 API 拉取 `GET /api/consumers/data/{pipeline}?consumer=name` |
+
+---
+
+## Pipeline 配置格式
+
+```json
+{
+  "pipeline": {"name": "csv-etl-demo", "version": "1.0"},
+  "datasource": {
+    "type": "csv",
+    "filePath": "etl-api/examples/csv-etl/input.csv",
+    "delimiter": ",",
+    "hasHeader": true
+  },
+  "inputSchema": {
+    "fields": [
+      {"name": "order_id", "type": "LONG"},
+      {"name": "customer", "type": "STRING"},
+      {"name": "amount", "type": "DOUBLE"},
+      {"name": "city", "type": "STRING"}
+    ]
+  },
+  "transforms": [
+    {"type": "filter", "expression": "amount > 100"},
+    {"type": "project", "mappings": [
+      {"from": "order_id", "to": "id"},
+      {"from": "customer", "to": "customer"},
+      {"from": "amount", "to": "total"},
+      {"from": "city", "to": "city"}
+    ]}
+  ],
+  "output": {"storage": {"type": "csv", "table": "output.csv"}}
+}
+```
+
+支持的 transform 类型：`filter`、`project`、`rename`、`aggregate`、`typeCast`、`join`、`split`。
 
 ---
 
@@ -165,31 +214,35 @@ cat data/output.csv
 
 ```
 Generic-ETL/
-├── etl-api/                     Spring Boot 应用 + REST + Security
-│   ├── config/                  Spring 配置、RouteLoader
-│   ├── controller/              PipelineController, ConsumerController, DashboardController
-│   ├── security/                ApiKeyAuthFilter, SecurityConfig
-│   ├── store/                   StateStore, LineageStore
-│   └── metrics/                 EtlMetrics
-├── etl-common/                  共享数据模型 & DTO
-├── etl-core/                    ETL 核心：编译、变换、表达式、校验
-│   ├── compile/                 JsonToYamlCompiler
-│   ├── config/                  PipelineConfigValidator
-│   ├── expression/              ExpressionEvaluator (MVEL)
-│   ├── transform/               EtlAggregator, ProjectTransformer, TypeCaster, CamelDeadLetterHandler
-│   └── store/                   AuditLog
-├── etl-engine/                  分发、持久化 & Consumer 管理
-│   ├── dispatch/                ConsumerDispatchService (PUSH)
-│   ├── persist/                 PersistHandler (JDBC)
+├── etl-api/                          Spring Boot 应用 + REST + Security
+│   ├── src/main/java/.../
+│   │   ├── config/                   Spring 配置、EtlYamlRouteLoader
+│   │   ├── controller/               PipelineController, ConsumerController
+│   │   ├── security/                 ApiKeyAuthFilter, SecurityConfig
+│   │   ├── store/                    StateStore, LineageStore
+│   │   └── metrics/                  EtlMetrics
+│   ├── src/main/resources/           application.yml, templates
+│   ├── config/
+│   │   ├── routes/                   Camel YAML DSL（启动时自动加载）
+│   │   └── samples/                  Pipeline JSON 示例
+│   └── examples/
+│       ├── csv-etl/                  开箱即用的 CSV ETL 示例
+│       └── sql/                      DDL 参考（PostgreSQL）
+├── etl-common/                       共享数据模型 & DTO
+├── etl-core/                         ETL 核心：编译、变换、表达式、校验
+│   ├── compile/                      JsonToYamlCompiler
+│   ├── config/                       PipelineConfigValidator
+│   ├── expression/                   ExpressionEvaluator (MVEL)
+│   ├── transform/                    EtlAggregator, ProjectTransformer, TypeCaster
+│   └── store/                        AuditLog
+├── etl-engine/                       分发、持久化 & Consumer 管理
+│   ├── dispatch/                     ConsumerDispatchService (PUSH)
+│   ├── persist/                      PersistHandler (JDBC)
 │   ├── LoadRouter.java
 │   ├── ConsumerRegistry.java
 │   └── ResultCache.java
-├── config/
-│   ├── samples/                 Pipeline JSON 示例
-│   └── routes/                  Camel YAML DSL 模板
-├── examples/
-│   └── csv-etl/                 开箱即用的 CSV ETL 示例
-└── docker-compose.yml
+├── build.gradle
+└── settings.gradle
 ```
 
 ## 技术栈
