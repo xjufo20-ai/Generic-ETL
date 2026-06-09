@@ -16,10 +16,12 @@ import java.util.Map;
 /**
  * Serves the Hawtio console at /hawtio/.
  *
- * Hawtio 4.x auto-config registers the UI under the management context
- * (/actuator/hawtio), not the main context. This servlet serves it at
- * the conventional /hawtio path by loading static resources directly
- * from the hawtio-springboot jar (located under "hawtio-static/").
+ * Hawtio 4.x ManagementConfiguration is excluded (see application.yml)
+ * because its auth filters require login even with authenticationEnabled=false.
+ * We serve static resources directly from the hawtio-springboot jar.
+ *
+ * Note: without Jolokia, the console loads but shows "not connected".
+ * Add org.jolokia:jolokia-core to enable JMX metrics.
  */
 @Configuration
 public class HawtioConfig {
@@ -35,7 +37,9 @@ public class HawtioConfig {
         Map.entry("woff", "font/woff"),
         Map.entry("ttf", "font/ttf"),
         Map.entry("eot", "application/vnd.ms-fontobject"),
-        Map.entry("ico", "image/x-icon")
+        Map.entry("ico", "image/x-icon"),
+        Map.entry("map", "application/json"),
+        Map.entry("txt", "text/plain")
     );
 
     @Bean
@@ -48,19 +52,17 @@ public class HawtioConfig {
     }
 
     public static class HawtioServlet extends HttpServlet {
-
         @Override
         protected void service(HttpServletRequest req, HttpServletResponse resp)
                 throws ServletException, IOException {
             String path = req.getRequestURI();
             String ctxPath = req.getContextPath();
-            String servletPath = "/hawtio";
-            String resource = path.substring((ctxPath + servletPath).length());
+            String prefix = "/hawtio";
+            String resource = path.substring((ctxPath + prefix).length());
             if (resource.isEmpty() || resource.equals("/")) {
                 resource = "/index.html";
             }
 
-            // Serve directly — skip Hawtio auth (already public in SecurityConfig)
             InputStream in = findResource(resource);
             if (in == null) {
                 resp.sendError(404, "Hawtio resource not found: " + resource);
@@ -79,7 +81,6 @@ public class HawtioConfig {
 
         private InputStream findResource(String resource) {
             ClassLoader cl = getClass().getClassLoader();
-            // Hawtio 4.x bundles static resources under "hawtio-static/" in the jar
             String[] prefixes = {
                 "hawtio-static",
                 "hawtio",
