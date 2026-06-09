@@ -14,14 +14,13 @@ import java.io.InputStream;
 import java.util.Map;
 
 /**
- * Serves the Hawtio console at /hawtio/.
+ * Serves the Hawtio console at /hawtio/ without authentication.
  *
- * Hawtio 4.x ManagementConfiguration is excluded (see application.yml)
- * because its auth filters require login even with authenticationEnabled=false.
- * We serve static resources directly from the hawtio-springboot jar.
- *
- * Note: without Jolokia, the console loads but shows "not connected".
- * Add org.jolokia:jolokia-core to enable JMX metrics.
+ * Hawtio 4.x ManagementConfiguration registers auth filters that cannot
+ * be cleanly disabled. We exclude it (see application.yml) and handle
+ * everything manually:
+ *   - Static resources from hawtio-springboot jar ("hawtio-static/")
+ *   - Auth endpoints that the Hawtio JS calls to check login state
  */
 @Configuration
 public class HawtioConfig {
@@ -52,6 +51,7 @@ public class HawtioConfig {
     }
 
     public static class HawtioServlet extends HttpServlet {
+
         @Override
         protected void service(HttpServletRequest req, HttpServletResponse resp)
                 throws ServletException, IOException {
@@ -59,6 +59,20 @@ public class HawtioConfig {
             String ctxPath = req.getContextPath();
             String prefix = "/hawtio";
             String resource = path.substring((ctxPath + prefix).length());
+
+            // ── Auth endpoints: tell the JS that no auth is needed ──────
+            if ("/user".equals(resource)) {
+                resp.setContentType("application/json");
+                resp.getWriter().write("\"public\"");
+                return;
+            }
+            if ("/auth/config".equals(resource)) {
+                resp.setContentType("application/json");
+                resp.getWriter().write("{\"authenticationEnabled\":false}");
+                return;
+            }
+
+            // ── Static resources from jar ─────────────────────────────
             if (resource.isEmpty() || resource.equals("/")) {
                 resource = "/index.html";
             }
