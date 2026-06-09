@@ -5,7 +5,7 @@
       parameters:
         fileName: input.csv
         noop: true
-        idempotent: false
+        idempotent: true
       steps:
       - unmarshal:
           csv:

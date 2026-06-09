@@ -172,7 +172,7 @@ public final class JsonToYamlCompiler {
             s.append("      parameters:\n");
             s.append("        fileName: ").append(fn).append("\n");
             s.append("        noop: true\n");
-            s.append("        idempotent: false\n");
+            s.append("        idempotent: true\n");
         } else if (ds instanceof DataSourceConfig.SftpDataSource sf) {
             s.append("      uri: sftp://").append(sf.getConnection().getUsername())
              .append("@").append(sf.getConnection().getHost()).append(":")
