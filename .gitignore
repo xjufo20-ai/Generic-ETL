@@ -26,3 +26,6 @@ logs/
 # Env
 .env
 .env.local
+
+# Runtime data
+etl-api/data/
