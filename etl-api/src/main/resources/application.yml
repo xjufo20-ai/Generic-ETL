@@ -39,5 +39,5 @@ camel:
 
 # ── Hawtio Management Console ──
 hawtio:
-  authentication-enabled: false
-  proxy-whitelist: localhost
+  authenticationEnabled: false
+  proxyWhitelist: localhost
