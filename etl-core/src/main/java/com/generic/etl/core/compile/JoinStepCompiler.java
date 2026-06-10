@@ -13,6 +13,9 @@ public class JoinStepCompiler implements TransformStepCompiler {
                "          constant: \"" + YamlUtils.escapeYamlDoubleQuote(j.getQuery()) + "\"\n" +
                "      - enrich:\n" +
                "          expression:\n" +
-               "            constant: \"sql:?dataSource=#dataSource&outputType=SelectOne\"\n";
+               "            constant: \"sql:?dataSource=#dataSource&outputType=SelectOne\"\n" +
+               // Normalize enrich result (may be String, Map, or List<Map>)
+               "      - bean:\n" +
+               "          ref: sqlListToMapList\n";
     }
 }
