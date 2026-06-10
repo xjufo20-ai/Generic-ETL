@@ -54,7 +54,7 @@ public final class JsonToYamlCompiler {
             yaml.append("      - setBody:\n");
             yaml.append("          constant: \"").append(YamlUtils.escapeYamlDoubleQuote(q)).append("\"\n");
             yaml.append("      - to:\n");
-            yaml.append("          uri: \"sql:?dataSource=#dataSource\"\n");
+            yaml.append("          uri: \"sql:?dataSource=#dataSource&outputType=SelectList\"\n");
         }
 
         // Compile transforms via strategy (with instanceof fallback)
