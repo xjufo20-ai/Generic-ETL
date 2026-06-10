@@ -4,6 +4,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.jolokia.server.core.http.AgentServlet;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,20 +12,14 @@ import org.springframework.util.StreamUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URI;
-import java.util.Enumeration;
 import java.util.Map;
 
 /**
- * Serves the Hawtio console at /hawtio/ without authentication.
+ * Serves the Hawtio console at /hawtio/.
  *
- * Hawtio 4.x ManagementConfiguration is excluded (see application.yml).
- * We handle everything manually:
- *   - Static resources from hawtio-springboot jar ("hawtio-static/")
- *   - Auth mock endpoints (/hawtio/user, /hawtio/auth/config)
- *   - Jolokia proxy (/hawtio/jolokia/* → /actuator/jolokia/*)
+ * Static resources and auth mocks are handled by HawtioServlet.
+ * Jolokia AgentServlet (Jakarta-compatible, from Hawtio's jolokia-server-core:2.1.1)
+ * is registered directly at /hawtio/jolokia/* so Hawtio auto-connects.
  */
 @Configuration
 public class HawtioConfig {
@@ -55,13 +50,16 @@ public class HawtioConfig {
         return reg;
     }
 
-    /** Proxies Jolokia requests to Spring Boot Actuator. */
+    /**
+     * Registers Jolokia 2.1.1 AgentServlet (Jakarta-compatible) directly at /hawtio/jolokia/*.
+     * Hawtio auto-connects to this local Jolokia agent without needing /connect/remote.
+     */
     @Bean
-    public ServletRegistrationBean<JolokiaProxyServlet> jolokiaProxyServletRegistration() {
-        ServletRegistrationBean<JolokiaProxyServlet> reg =
-            new ServletRegistrationBean<>(new JolokiaProxyServlet(), "/hawtio/jolokia/*");
+    public ServletRegistrationBean<AgentServlet> jolokiaAgentRegistration() {
+        ServletRegistrationBean<AgentServlet> reg =
+            new ServletRegistrationBean<>(new AgentServlet(), "/hawtio/jolokia/*");
         reg.setLoadOnStartup(2);
-        reg.setName("jolokiaProxyServlet");
+        reg.setName("jolokiaAgent");
         return reg;
     }
 
@@ -76,7 +74,6 @@ public class HawtioConfig {
             String prefix = "/hawtio";
             String resource = path.substring((ctxPath + prefix).length());
 
-            // Auth endpoints — tell Hawtio JS no auth is needed
             if ("/user".equals(resource)) {
                 resp.setContentType("application/json");
                 resp.getWriter().write("\"public\"");
@@ -88,7 +85,6 @@ public class HawtioConfig {
                 return;
             }
 
-            // Static resources
             if (resource.isEmpty() || resource.equals("/")) {
                 resource = "/index.html";
             }
@@ -119,74 +115,6 @@ public class HawtioConfig {
                 if (in != null) return in;
             }
             return null;
-        }
-    }
-
-    // ── Jolokia proxy ─────────────────────────────────────────────────
-
-    /**
-     * Forwards /hawtio/jolokia/* → /actuator/jolokia/*
-     * (Spring Boot Actuator auto-configures Jolokia when jolokia-core is present).
-     */
-    public static class JolokiaProxyServlet extends HttpServlet {
-        @Override
-        protected void service(HttpServletRequest req, HttpServletResponse resp)
-                throws ServletException, IOException {
-            String path = req.getRequestURI();
-            String ctxPath = req.getContextPath();
-            String hawtioPrefix = "/hawtio";
-            String suffix = path.substring((ctxPath + hawtioPrefix).length()); // /jolokia/...
-
-            String target = "http://localhost:8080/actuator" + suffix;
-            if (req.getQueryString() != null) {
-                target += "?" + req.getQueryString();
-            }
-
-            try {
-                HttpURLConnection conn = (HttpURLConnection) URI.create(target).toURL().openConnection();
-                conn.setRequestMethod(req.getMethod());
-                conn.setConnectTimeout(5000);
-                conn.setReadTimeout(15000);
-
-                // Copy request headers
-                Enumeration<String> names = req.getHeaderNames();
-                while (names.hasMoreElements()) {
-                    String name = names.nextElement();
-                    if (!"Host".equalsIgnoreCase(name) && !"Content-Length".equalsIgnoreCase(name)) {
-                        conn.setRequestProperty(name, req.getHeader(name));
-                    }
-                }
-
-                // Copy request body (POST)
-                if ("POST".equalsIgnoreCase(req.getMethod())) {
-                    conn.setDoOutput(true);
-                    try (OutputStream os = conn.getOutputStream()) {
-                        StreamUtils.copy(req.getInputStream(), os);
-                    }
-                }
-
-                // Copy response
-                resp.setStatus(conn.getResponseCode());
-                conn.getHeaderFields().forEach((key, values) -> {
-                    if (key != null && !"Transfer-Encoding".equalsIgnoreCase(key)) {
-                        values.forEach(v -> resp.addHeader(key, v));
-                    }
-                });
-
-                InputStream body = conn.getResponseCode() >= 400
-                    ? conn.getErrorStream() : conn.getInputStream();
-                if (body != null) {
-                    if (conn.getContentType() != null) resp.setContentType(conn.getContentType());
-                    try (InputStream is = body) {
-                        StreamUtils.copy(is, resp.getOutputStream());
-                    }
-                }
-            } catch (Exception e) {
-                resp.setContentType("application/json");
-                resp.setStatus(502);
-                resp.getWriter().write("{\"error\":\"Jolokia proxy error: " +
-                    e.getMessage().replace("\"", "'") + "\"}");
-            }
         }
     }
 }
