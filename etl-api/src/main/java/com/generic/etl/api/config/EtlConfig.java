@@ -7,6 +7,8 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.generic.etl.core.store.AuditLog;
 import com.generic.etl.core.store.LineageStore;
 import com.generic.etl.api.store.StateStore;
+import org.jolokia.server.core.http.AgentServlet;
+import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.TaskScheduler;
@@ -49,5 +51,18 @@ public class EtlConfig {
         scheduler.setThreadNamePrefix("etl-");
         scheduler.initialize();
         return scheduler;
+    }
+
+    /**
+     * Jolokia 2.1.1 AgentServlet — JMX-to-HTTP bridge.
+     * Registered at /jolokia/* for Hawtio's ProxyServlet to forward to.
+     */
+    @Bean
+    public ServletRegistrationBean<AgentServlet> jolokiaAgentServlet() {
+        ServletRegistrationBean<AgentServlet> reg =
+                new ServletRegistrationBean<>(new AgentServlet(), "/jolokia/*");
+        reg.setLoadOnStartup(1);
+        reg.setName("jolokiaAgent");
+        return reg;
     }
 }
