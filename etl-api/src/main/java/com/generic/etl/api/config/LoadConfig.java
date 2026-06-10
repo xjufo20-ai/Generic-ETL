@@ -7,6 +7,7 @@ import com.generic.etl.core.store.LineageStore;
 import com.generic.etl.engine.ConsumerRegistry;
 import com.generic.etl.engine.LoadRouter;
 import com.generic.etl.engine.ResultCache;
+import com.generic.etl.engine.SqlResultNormalizer;
 import com.generic.etl.engine.dispatch.ConsumerDispatchService;
 import com.generic.etl.engine.persist.PersistHandler;
 import jakarta.annotation.PostConstruct;
@@ -62,6 +63,15 @@ public class LoadConfig {
         };
     }
 
+    /**
+     * Normalizes sql: producer output to List&lt;Map&lt;String, Object&gt;&gt;.
+     * Inserted between sql: and transform steps to guarantee uniform body format.
+     */
+    @Bean("sqlListToMapList")
+    public Processor sqlListToMapList() {
+        return new SqlResultNormalizer();
+    }
+
     @Bean
     public ConsumerRegistry consumerRegistry() { return new ConsumerRegistry(); }
 
@@ -73,7 +83,6 @@ public class LoadConfig {
         return new ConsumerDispatchService(builder);
     }
 
-    /** Primary metrics recorder: EtlMetrics (Micrometer). */
     @Bean
     @Primary
     public MetricsRecorder metricsRecorder(EtlMetrics etlMetrics) {

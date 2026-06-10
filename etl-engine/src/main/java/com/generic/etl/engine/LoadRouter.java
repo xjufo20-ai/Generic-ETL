@@ -37,14 +37,21 @@ public class LoadRouter {
     @SuppressWarnings("unchecked")
     public void route(Exchange exchange) {
         String pipelineName = exchange.getProperty("pipelineName", String.class);
-        List<Map<String, Object>> body = exchange.getIn().getBody(List.class);
-        if (body == null || body.isEmpty()) {
-            log.debug("Pipeline '{}': empty body, skipping", pipelineName);
+        Object rawBody = exchange.getIn().getBody();
+
+        if (rawBody == null) {
+            log.debug("Pipeline '{}': null body, skipping", pipelineName);
+            return;
+        }
+
+        // Normalize body to List<Row> regardless of input format
+        List<Row> rows = normalizeBody(rawBody, pipelineName);
+        if (rows.isEmpty()) {
+            log.debug("Pipeline '{}': empty body after normalization, skipping", pipelineName);
             return;
         }
 
         long startMs = System.currentTimeMillis();
-        List<Row> rows = body.stream().map(m -> new Row(new LinkedHashMap<>(m))).toList();
         int rowCount = rows.size();
 
         // Dispatch to consumers
@@ -74,6 +81,59 @@ public class LoadRouter {
         metrics.recordSuccess(pipelineName, rowCount, durationMs);
 
         log.info("Pipeline '{}': {} rows staged in {}ms", pipelineName, rowCount, durationMs);
+    }
+
+    /**
+     * Normalize any body type into List&lt;Row&gt;.
+     * Handles: List&lt;Map&gt;, List&lt;Row&gt;, List&lt;List&gt; (Camel sql: stream),
+     *          Map (single row), and raw List of anything else.
+     */
+    @SuppressWarnings("unchecked")
+    private List<Row> normalizeBody(Object body, String pipelineName) {
+        if (body instanceof List<?> list) {
+            if (list.isEmpty()) return List.of();
+            Object first = list.get(0);
+
+            if (first instanceof Row) {
+                return (List<Row>) list;
+            }
+            if (first instanceof Map) {
+                return list.stream()
+                        .map(m -> new Row(new LinkedHashMap<>((Map<String, Object>) m)))
+                        .toList();
+            }
+            // Camel sql: component may return List<List> (StreamList mode) or raw column values
+            if (first instanceof List) {
+                log.debug("Pipeline '{}': body is List<List>, flattening", pipelineName);
+                // Treat each inner list as a row with positional column names
+                return list.stream()
+                        .map(item -> {
+                            Row row = new Row();
+                            int i = 0;
+                            for (Object val : (List<?>) item) {
+                                row.put("col" + i++, val);
+                            }
+                            return row;
+                        }).toList();
+            }
+            // Fallback: wrap each element as a single-column row
+            log.warn("Pipeline '{}': unexpected body element type '{}', wrapping as _value column",
+                    pipelineName, first.getClass().getSimpleName());
+            return list.stream().map(item -> {
+                Row row = new Row();
+                row.put("_value", item);
+                return row;
+            }).toList();
+
+        } else if (body instanceof Map<?, ?> m) {
+            return List.of(new Row(new LinkedHashMap<>((Map<String, Object>) m)));
+        } else {
+            log.warn("Pipeline '{}': unexpected body type '{}', wrapping as single row",
+                    pipelineName, body.getClass().getSimpleName());
+            Row row = new Row();
+            row.put("_value", body);
+            return List.of(row);
+        }
     }
 
     private String resolveOutputTable(String pipelineName) {

@@ -55,6 +55,9 @@ public final class JsonToYamlCompiler {
             yaml.append("          constant: \"").append(YamlUtils.escapeYamlDoubleQuote(q)).append("\"\n");
             yaml.append("      - to:\n");
             yaml.append("          uri: \"sql:?dataSource=#dataSource&outputType=SelectList\"\n");
+            // Normalize sql: producer output to List<Map> regardless of Camel version behavior
+            yaml.append("      - bean:\n");
+            yaml.append("          ref: sqlListToMapList\n");
         }
 
         // Compile transforms via strategy (with instanceof fallback)
@@ -86,7 +89,6 @@ public final class JsonToYamlCompiler {
         if (type != null && !type.isBlank()) {
             return TRANSFORM_COMPILERS.get(type);
         }
-        // Fallback: resolve by class for programmatic usage where type is not set
         if (t instanceof TransformDef.FilterDef) return TRANSFORM_COMPILERS.get("filter");
         if (t instanceof TransformDef.ProjectDef) return TRANSFORM_COMPILERS.get("project");
         if (t instanceof TransformDef.RenameDef) return TRANSFORM_COMPILERS.get("rename");
@@ -193,8 +195,6 @@ public final class JsonToYamlCompiler {
         }
         return new ArrayList<>(fields);
     }
-
-    // ── Public utility (used by PipelineController for Simple expression) ──
 
     public static String toCamelSimple(String expr) {
         if (expr == null || expr.isBlank()) return "true";
