@@ -2,31 +2,24 @@ package com.generic.etl.core.transform;
 
 import com.generic.etl.core.expression.ExpressionEvaluator;
 import org.apache.camel.Exchange;
-import org.apache.camel.Processor;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
 
 @Component("rowFilter")
-public class RowFilterProcessor implements Processor {
+public class RowFilterProcessor extends AbstractTransformProcessor {
 
     @Override
-    @SuppressWarnings("unchecked")
-    public void process(Exchange exchange) {
+    protected List<Map<String, Object>> doTransform(List<Map<String, Object>> rows, Exchange exchange) {
         String expr = exchange.getIn().getHeader("filterExpr", String.class);
-        if (expr == null || expr.isBlank()) return;
-
-        Object body = exchange.getIn().getBody();
-        if (!(body instanceof List<?> list)) return;
+        if (expr == null || expr.isBlank()) return null;
 
         List<Map<String, Object>> result = new ArrayList<>();
-        for (Object item : list) {
-            if (item instanceof Map<?, ?> row) {
-                if (ExpressionEvaluator.evaluateMap((Map<String, Object>) row, expr)) {
-                    result.add((Map<String, Object>) row);
-                }
+        for (Map<String, Object> row : rows) {
+            if (ExpressionEvaluator.evaluateMap(row, expr)) {
+                result.add(row);
             }
         }
-        exchange.getIn().setBody(result);
+        return result;
     }
 }

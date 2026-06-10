@@ -2,18 +2,28 @@ package com.generic.etl.engine.persist;
 
 import com.generic.etl.common.model.ConnectionConfig;
 import com.generic.etl.common.model.Row;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import javax.sql.DataSource;
 import java.sql.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/** JDBC persist — insert with optional upsert via default DataSource or per-pipeline ConnectionConfig. */
+import org.apache.camel.Exchange;
+
+/**
+ * JDBC persist with cross-database upsert support.
+ *
+ * Supported dialects: PostgreSQL, MySQL, H2.
+ * The dialect is auto-detected from the JDBC URL or ConnectionConfig.
+ */
 @Slf4j
-@RequiredArgsConstructor
 public class PersistHandler {
+
     private final DataSource dataSource;
+
+    public PersistHandler(DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
 
     /** Insert rows using the default DataSource. */
     public int insert(String table, List<Row> rows, List<String> primaryKeys) {
@@ -24,7 +34,9 @@ public class PersistHandler {
     public int insert(String table, List<Row> rows, List<String> primaryKeys, ConnectionConfig connConfig) {
         if (rows.isEmpty()) return 0;
         List<String> cols = rows.get(0).getValues().keySet().stream().toList();
-        String sql = buildSql(table, cols, primaryKeys);
+        String url = connConfig != null ? connConfig.getUrl() : resolveDefaultUrl();
+        SqlDialect dialect = SqlDialect.detect(url);
+        String sql = dialect.buildUpsert(table, cols, primaryKeys);
         if (connConfig != null) {
             return insertWithDriverManager(connConfig, sql, rows, cols, table);
         } else {
@@ -32,14 +44,24 @@ public class PersistHandler {
         }
     }
 
-    private String buildSql(String table, List<String> cols, List<String> primaryKeys) {
-        if (primaryKeys != null && !primaryKeys.isEmpty()) {
-            String updateSet = cols.stream().filter(c -> !primaryKeys.contains(c))
-                    .map(c -> c + " = EXCLUDED." + c).collect(Collectors.joining(", "));
-            return String.format("INSERT INTO %s (%s) VALUES (%s) ON CONFLICT (%s) DO UPDATE SET %s",
-                    table, joinCols(cols), joinPlaceholders(cols), String.join(", ", primaryKeys), updateSet);
+    /** Camel 4 bean entry point — reads table & primaryKeys from exchange headers. */
+    @SuppressWarnings("unchecked")
+    public void process(Exchange exchange) {
+        String table = exchange.getIn().getHeader("persistTable", String.class);
+        String pkStr = exchange.getIn().getHeader("persistPrimaryKeys", String.class);
+        List<Row> rows = exchange.getIn().getBody(List.class);
+        List<String> primaryKeys = pkStr != null && !pkStr.isEmpty()
+                ? List.of(pkStr.split(",")) : null;
+        insert(table, rows, primaryKeys);
+    }
+
+    private String resolveDefaultUrl() {
+        try (Connection c = dataSource.getConnection()) {
+            return c.getMetaData().getURL();
+        } catch (SQLException e) {
+            log.warn("Could not resolve default DataSource URL, assuming PostgreSQL");
+            return "jdbc:postgresql:";
         }
-        return String.format("INSERT INTO %s (%s) VALUES (%s)", table, joinCols(cols), joinPlaceholders(cols));
     }
 
     private int insertWithDataSource(String sql, List<Row> rows, List<String> cols, String table) {
@@ -79,8 +101,76 @@ public class PersistHandler {
         return count;
     }
 
+    // ── SQL Dialect strategy ──────────────────────────────────────────
+
+    enum SqlDialect {
+        POSTGRESQL {
+            @Override
+            String buildUpsert(String table, List<String> cols, List<String> primaryKeys) {
+                if (primaryKeys == null || primaryKeys.isEmpty()) {
+                    return buildSimpleInsert(table, cols);
+                }
+                String updateSet = cols.stream().filter(c -> !primaryKeys.contains(c))
+                        .map(c -> c + " = EXCLUDED." + c).collect(Collectors.joining(", "));
+                return String.format("INSERT INTO %s (%s) VALUES (%s) ON CONFLICT (%s) DO UPDATE SET %s",
+                        table, joinCols(cols), joinPlaceholders(cols),
+                        String.join(", ", primaryKeys), updateSet);
+            }
+        },
+        MYSQL {
+            @Override
+            String buildUpsert(String table, List<String> cols, List<String> primaryKeys) {
+                if (primaryKeys == null || primaryKeys.isEmpty()) {
+                    return buildSimpleInsert(table, cols);
+                }
+                String updateSet = cols.stream().filter(c -> !primaryKeys.contains(c))
+                        .map(c -> c + " = VALUES(" + c + ")").collect(Collectors.joining(", "));
+                return String.format("INSERT INTO %s (%s) VALUES (%s) ON DUPLICATE KEY UPDATE %s",
+                        table, joinCols(cols), joinPlaceholders(cols), updateSet);
+            }
+        },
+        H2 {
+            @Override
+            String buildUpsert(String table, List<String> cols, List<String> primaryKeys) {
+                if (primaryKeys == null || primaryKeys.isEmpty()) {
+                    return buildSimpleInsert(table, cols);
+                }
+                // H2 supports MERGE INTO
+                String keyCondition = primaryKeys.stream()
+                        .map(pk -> "t." + pk + " = s." + pk)
+                        .collect(Collectors.joining(" AND "));
+                String keyCols = String.join(", ", primaryKeys);
+                return String.format("MERGE INTO %s t USING (SELECT %s FROM DUAL) s ON (%s)"
+                        + " WHEN MATCHED THEN UPDATE SET %s"
+                        + " WHEN NOT MATCHED THEN INSERT (%s) VALUES (%s)",
+                        table, joinPlaceholdersWithAlias(cols, "s"), keyCondition,
+                        cols.stream().filter(c -> !primaryKeys.contains(c))
+                                .map(c -> c + " = s." + c).collect(Collectors.joining(", ")),
+                        joinCols(cols), joinPlaceholdersWithAlias(cols, "s"));
+            }
+        };
+
+        abstract String buildUpsert(String table, List<String> cols, List<String> primaryKeys);
+
+        static String buildSimpleInsert(String table, List<String> cols) {
+            return String.format("INSERT INTO %s (%s) VALUES (%s)",
+                    table, joinCols(cols), joinPlaceholders(cols));
+        }
+
+        static SqlDialect detect(String url) {
+            if (url == null) return POSTGRESQL;
+            String lower = url.toLowerCase();
+            if (lower.contains("mysql")) return MYSQL;
+            if (lower.contains("h2")) return H2;
+            return POSTGRESQL; // default
+        }
+    }
+
     private static String joinCols(List<String> cols) { return String.join(", ", cols); }
     private static String joinPlaceholders(List<String> cols) {
+        return cols.stream().map(c -> "?").collect(Collectors.joining(", "));
+    }
+    private static String joinPlaceholdersWithAlias(List<String> cols, String alias) {
         return cols.stream().map(c -> "?").collect(Collectors.joining(", "));
     }
 }

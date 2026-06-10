@@ -9,9 +9,13 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.Set;
+
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Set<String> DEV_PROFILES = Set.of("dev", "local");
 
     @Value("${spring.profiles.active:dev}")
     private String activeProfile;
@@ -34,7 +38,7 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ApiResponse<?> handleInternal(Exception e) {
         log.error("Internal error", e);
-        if ("dev".equals(activeProfile)) {
+        if (DEV_PROFILES.contains(activeProfile)) {
             return ApiResponse.error(e.getMessage());
         }
         return ApiResponse.error("Internal server error");

@@ -1,7 +1,7 @@
 package com.generic.etl.api.controller;
 
 import com.generic.etl.core.store.AuditLog;
-import com.generic.etl.api.store.LineageStore;
+import com.generic.etl.core.store.LineageStore;
 import com.generic.etl.api.store.StateStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;

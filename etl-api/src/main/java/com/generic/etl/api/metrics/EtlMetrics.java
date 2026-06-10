@@ -1,22 +1,25 @@
 package com.generic.etl.api.metrics;
 
+import com.generic.etl.core.metrics.MetricsRecorder;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.TimeUnit;
 
 @Component
-@RequiredArgsConstructor
-public class EtlMetrics {
+public class EtlMetrics implements MetricsRecorder {
     private final MeterRegistry registry;
     private Counter pipelinesExecuted;
     private Counter pipelinesFailed;
     private Counter rowsExtracted;
     private Timer pipelineDuration;
+
+    public EtlMetrics(MeterRegistry registry) {
+        this.registry = registry;
+    }
 
     @PostConstruct
     void init() {
@@ -30,12 +33,14 @@ public class EtlMetrics {
                 .description("Pipeline execution duration").register(registry);
     }
 
+    @Override
     public void recordSuccess(String pipeline, long rows, long durationMs) {
         pipelinesExecuted.increment();
         rowsExtracted.increment(rows);
         pipelineDuration.record(durationMs, TimeUnit.MILLISECONDS);
     }
 
+    @Override
     public void recordFailure(String pipeline) {
         pipelinesFailed.increment();
     }

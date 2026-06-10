@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.generic.etl.core.store.AuditLog;
-import com.generic.etl.api.store.LineageStore;
+import com.generic.etl.core.store.LineageStore;
 import com.generic.etl.api.store.StateStore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,20 +17,37 @@ import java.nio.file.Path;
 @Configuration
 public class EtlConfig {
 
-    @Bean public ObjectMapper objectMapper() {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule());
-        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
-        return mapper;
+    private static final Path DATA_DIR = Path.of("data");
+
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper()
+                .registerModule(new JavaTimeModule())
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
     }
 
-    @Bean public AuditLog auditLog(ObjectMapper mapper) { return new AuditLog(Path.of("data"), mapper); }
-    @Bean public LineageStore lineageStore(ObjectMapper mapper) { return new LineageStore(Path.of("data"), mapper); }
-    @Bean public StateStore stateStore(ObjectMapper mapper, AuditLog auditLog) { return new StateStore(Path.of("data"), mapper, auditLog); }
+    @Bean
+    public AuditLog auditLog(ObjectMapper mapper) {
+        return new AuditLog(DATA_DIR, mapper);
+    }
 
-    @Bean public TaskScheduler taskScheduler() {
-        ThreadPoolTaskScheduler s = new ThreadPoolTaskScheduler(); s.setPoolSize(4); s.setThreadNamePrefix("etl-"); s.initialize();
-        return s;
+    @Bean
+    public LineageStore lineageStore(ObjectMapper mapper) {
+        return new LineageStore(DATA_DIR, mapper);
+    }
+
+    @Bean
+    public StateStore stateStore(ObjectMapper mapper) {
+        return new StateStore(DATA_DIR, mapper);
+    }
+
+    @Bean
+    public TaskScheduler taskScheduler() {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(4);
+        scheduler.setThreadNamePrefix("etl-");
+        scheduler.initialize();
+        return scheduler;
     }
 }

@@ -19,12 +19,12 @@ import java.util.*;
 import java.util.regex.*;
 
 /**
- * Loads Camel routes at startup from three sources:
- * 1. config/routes/*.yaml          (static YAML DSL)
- * 2. config/samples/*.json         (static JSON → compiled)
- * 3. data/pipelines.json           (API-registered pipelines, rehydrated on restart)
- *
- * Also restores persisted consumers to the in-memory registry.
+ * Loads Camel routes and consumers at startup:
+ * 1. config/routes/*.yaml             — static YAML DSL
+ * 2. config/samples/*.json            — static pipeline JSON → compiled to Camel YAML
+ * 3. config/consumers/*.json          — static consumer registrations
+ * 4. data/pipelines.json              — API-registered pipelines, rehydrated on restart
+ * 5. data/consumers.json              — API-registered consumers, rehydrated on restart
  */
 @Slf4j
 @Component
@@ -33,6 +33,7 @@ public class EtlYamlRouteLoader {
 
     private static final String ROUTES_DIR = "config/routes";
     private static final String SAMPLES_DIR = "config/samples";
+    private static final String CONSUMERS_DIR = "config/consumers";
     private static final Pattern ENV = Pattern.compile("\\{\\{env:([^}:]+)(?::([^}]*))?\\}\\}");
 
     private final CamelContext camelContext;
@@ -45,9 +46,10 @@ public class EtlYamlRouteLoader {
         int before = camelContext.getRoutes().size();
 
         loadYamlDir();                                    // 1. static YAML
-        loadJsonDir();                                    // 2. static JSON
-        restoreApiPipelines();                            // 3. rehydrate API pipelines
-        restoreConsumers();                               // 4. rehydrate consumers
+        loadJsonDir();                                    // 2. static pipeline JSON
+        loadConsumerDir();                                // 3. static consumer JSON
+        restoreApiPipelines();                            // 4. rehydrate API pipelines
+        restoreConsumers();                               // 5. rehydrate API consumers
 
         log.info("Routes loaded: {} → {} (static + restored)", before, camelContext.getRoutes().size());
     }
@@ -79,6 +81,26 @@ public class EtlYamlRouteLoader {
                      }
                  });
         } catch (IOException e) { log.error("Scan failed: {}", SAMPLES_DIR, e); }
+    }
+
+    // ── Static consumer JSON ─────────────────────────────────────────
+
+    private void loadConsumerDir() {
+        Path dir = Path.of(CONSUMERS_DIR);
+        if (!Files.exists(dir)) return;
+        try (var files = Files.list(dir)) {
+            files.filter(p -> p.toString().endsWith(".json"))
+                 .forEach(f -> {
+                     try {
+                         String json = resolveEnv(readFile(f));
+                         ConsumerRegistration reg = mapper.readValue(json, ConsumerRegistration.class);
+                         consumerRegistry.register(reg);
+                         log.info("Registered consumer: {}", f.getFileName());
+                     } catch (Exception e) {
+                         log.error("Failed: {}", f.getFileName(), e);
+                     }
+                 });
+        } catch (IOException e) { log.error("Scan failed: {}", CONSUMERS_DIR, e); }
     }
 
     // ── API-registered pipelines (rehydrate on restart) ──────────────
@@ -158,11 +180,13 @@ public class EtlYamlRouteLoader {
     }
 
     private static org.apache.camel.spi.Resource resource(String content, String loc) {
+        // Camel resolves RoutesBuilderLoader by file extension, so ensure .yaml
+        String yamlLoc = loc.replaceFirst("\\.json$", ".yaml");
         return new org.apache.camel.spi.Resource() {
-            @Override public String getLocation() { return loc; }
+            @Override public String getLocation() { return yamlLoc; }
             @Override public InputStream getInputStream() { return new ByteArrayInputStream(content.getBytes()); }
             @Override public boolean exists() { return true; }
-            @Override public String getScheme() { return "yaml"; }
+            @Override public String getScheme() { return "mem"; }
         };
     }
 }

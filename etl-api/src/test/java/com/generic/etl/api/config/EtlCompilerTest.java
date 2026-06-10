@@ -19,7 +19,7 @@ class EtlCompilerTest {
 
         String yaml = JsonToYamlCompiler.compile(c);
         assertTrue(yaml.contains("id: test"));
-        assertTrue(yaml.contains("jdbc:etlDataSource"));
+        assertTrue(yaml.contains("timer:test"));
         assertTrue(yaml.contains("SELECT a, b FROM t"));
         assertTrue(yaml.contains("bean:loadRouter"));
     }
@@ -79,6 +79,7 @@ class EtlCompilerTest {
 
         String yaml = JsonToYamlCompiler.compile(c);
         assertTrue(yaml.contains("ts >= '2024-01-01'"));
+        assertTrue(yaml.contains("timer:inc"));
     }
 
     @Test

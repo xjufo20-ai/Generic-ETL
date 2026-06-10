@@ -1,11 +1,8 @@
+# Minimal Camel route for testing CSV file input
 - route:
     id: test-minimal
     from:
-      uri: file:/Users/junxu/Documents/Generic-ETL/examples/csv-etl
-      parameters:
-        fileName: input.csv
-        noop: true
-        idempotent: true
+      uri: "file:data/in?fileName=input.csv&noop=true&idempotent=true"
       steps:
       - unmarshal:
           csv:

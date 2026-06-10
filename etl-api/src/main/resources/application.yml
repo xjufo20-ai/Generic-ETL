@@ -19,12 +19,6 @@ management:
     health:
       show-details: always
 
-eureka:
-  client:
-    enabled: false
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
-
 etl:
   api-keys: sk-admin:ADMIN,sk-operator:OPERATOR,sk-viewer:VIEWER
 

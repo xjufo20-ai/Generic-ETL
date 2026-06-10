@@ -5,14 +5,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
-import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 
 @SpringBootApplication
 @ComponentScan(basePackages = "com.generic.etl")
 @EnableScheduling
-@EnableDiscoveryClient
 @RequiredArgsConstructor
 public class EtlApplication {
     private final ResultCache resultCache;

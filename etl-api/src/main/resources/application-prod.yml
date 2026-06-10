@@ -22,9 +22,3 @@ server:
     max-connections: 200
     threads:
       max: 50
-
-eureka:
-  client:
-    enabled: true
-    service-url:
-      defaultZone: http://eureka-prod:8761/eureka/

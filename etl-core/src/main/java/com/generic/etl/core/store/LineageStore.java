@@ -1,4 +1,4 @@
-package com.generic.etl.api.store;
+package com.generic.etl.core.store;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;

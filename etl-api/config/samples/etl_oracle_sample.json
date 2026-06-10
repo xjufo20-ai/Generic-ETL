@@ -1,6 +1,6 @@
 {
   "pipeline": {
-    "name": "employee-salary-etl",
+    "name": "oracle-dept-salary-etl",
     "version": "1.0",
     "cron": "0 */10 * * * ?"
   },
