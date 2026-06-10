@@ -14,6 +14,7 @@ import com.generic.etl.common.model.PipelineConfig;
 import com.generic.etl.core.config.PipelineConfigValidator;
 import lombok.RequiredArgsConstructor;
 import org.apache.camel.CamelContext;
+import org.apache.camel.ProducerTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -100,6 +101,19 @@ public class PipelineController {
         try {
             camelContext.getRouteController().startRoute(name);
             return ApiResponse.ok("Resumed: " + name);
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    /** Manually trigger a pipeline immediately, regardless of cron schedule. */
+    @PostMapping("/{name}/trigger")
+    @PreAuthorize(Roles.IS_ADMIN_OR_OPERATOR)
+    public ApiResponse<String> trigger(@PathVariable String name) {
+        try {
+            ProducerTemplate template = camelContext.createProducerTemplate();
+            template.sendBody("direct:" + name, "");
+            return ApiResponse.ok("Triggered: " + name);
         } catch (Exception e) {
             return ApiResponse.error(e.getMessage());
         }
