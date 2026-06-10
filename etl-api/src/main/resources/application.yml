@@ -6,9 +6,6 @@ spring:
     name: generic-etl
   profiles:
     active: dev
-  autoconfigure:
-    exclude:
-      - io.hawt.springboot.HawtioManagementConfiguration
 
 management:
   endpoints:
