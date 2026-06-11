@@ -82,7 +82,7 @@ curl -s -X POST http://localhost:8080/api/consumers/register \
 
 ```bash
 curl -s "http://localhost:8080/api/consumers/data/csv-etl-demo?consumer=my-app" \
-  -H "X-API-Key: dev-viewer" | python3 -m json.tool
+  -H "X-API-Key: dev-viewer"
 ```
 
 响应（3 条 amount > 100 的记录，字段已重命名）：

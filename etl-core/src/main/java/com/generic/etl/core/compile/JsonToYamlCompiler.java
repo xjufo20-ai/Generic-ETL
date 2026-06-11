@@ -2,6 +2,7 @@ package com.generic.etl.core.compile;
 
 import com.generic.etl.common.model.*;
 
+import java.nio.file.Path;
 import java.util.*;
 
 /**
@@ -104,9 +105,15 @@ public final class JsonToYamlCompiler {
     private static String buildSource(PipelineConfig config) {
         DataSourceConfig ds = config.getDatasource();
         if (ds instanceof DataSourceConfig.CsvDataSource csv) {
-            return "      uri: \"file:" + csv.getFilePath()
-                    + "?noop=true&idempotent=true\"\n" +
-                   "      steps:\n";
+            Path p = Path.of(csv.getFilePath());
+            String dir = p.getParent() != null ? p.getParent().toString() : ".";
+            String fileName = p.getFileName().toString();
+            return "      uri: \"file:" + dir
+                    + "?noop=true&idempotent=true"
+                    + "&fileName=" + fileName
+                    + "&initialDelay=1000"
+                    + "&delay=5000\"\n"
+                    + "      steps:\n";
         } else if (ds instanceof DataSourceConfig.JdbcDataSource jdbc) {
             return "      uri: \"timer:" + config.getPipeline().getName()
                     + "?period=60000&delay=1000\"\n" +
